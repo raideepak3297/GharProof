@@ -21,6 +21,7 @@ _Runtime: Node.js (LTS) | Framework: NestJS | Database: MongoDB via Mongoose | L
   │   ├── interceptors/        # TransformResponseInterceptor, LoggingInterceptor
   │   └── utils/               # crypto-hash.util.ts, canonical-sort.util.ts
   ├── config/                  # Configuration loader + env validation
+  ├── database/                # DatabaseModule & DatabaseService (connection lifecycle & logging)
   ├── logger/                  # Structured LoggerService
   ├── modules/                 # Feature domain modules
   │   ├── auth/                # AuthController, AuthService, JwtStrategy, interfaces/

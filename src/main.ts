@@ -36,7 +36,8 @@ async function bootstrap() {
   });
 
   await app.listen(port);
-  logger.log(`GharProof Backend is running on: http://localhost:${port}/api/v1`);
-  logger.log(`Health check: http://localhost:${port}/api/v1/health`);
+  logger.log(`🚀 Server is running on port: ${port}`);
+  logger.log(`🔗 API Base URL: http://localhost:${port}/api/v1`);
+  logger.log(`🏥 Health check: http://localhost:${port}/api/v1/health`);
 }
 bootstrap();

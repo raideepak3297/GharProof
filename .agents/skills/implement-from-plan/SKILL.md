@@ -43,6 +43,7 @@ description: Use after a ticket-kickoff plan has been approved and it's time to 
    - If a service is consumed by another module, add it to `exports`
    - All enums must be defined in `src/common/enums/index.ts` — never create separate enum files in modules
    - All interfaces must be defined in the module's dedicated interface file (`interfaces/<feature>.interface.ts`) — never inline in services, controllers, or schemas
+   - In protected controller endpoints, inject the authenticated user as `@CurrentUser() user: JwtPayload` and access `user.userId`, `user.email`, `user.role`
 
 6. **Stop on ambiguity.** Schema shape unclear? Multiple valid patterns in neighboring code? Unsure if a field should be indexed? Ask. Don't guess.
 

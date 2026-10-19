@@ -66,7 +66,7 @@ _Runtime: Node.js (LTS) | Framework: NestJS | Database: MongoDB via Mongoose | L
 - Route prefix: **kebab-case** (`@Controller("rentals")`, `@Controller("inspections")`).
 - Decorator order on handlers: `@Public()` / `@Roles()` → HTTP verb decorator (`@Get`, `@Post`, `@Patch`) → handler method.
 - Controller methods must remain **thin**:
-  - Accept validated DTOs, route params, query params, and `@CurrentUser()`.
+  - Accept validated DTOs, route params, query params, and authenticated user via `@CurrentUser() user: JwtPayload` (Option A pattern; never pluck via `@CurrentUser('userId')`).
   - Pass clean arguments to service methods.
   - Never execute Mongoose queries, file writes, or hash algorithms inside controllers.
 - Mutations return `{ message: string, data?: any }` wrapped by standard `TransformResponseInterceptor`:
@@ -165,9 +165,7 @@ _Runtime: Node.js (LTS) | Framework: NestJS | Database: MongoDB via Mongoose | L
 
 ## 9. Auth & Authorization
 
-- All routes are protected by default via global `JwtAuthGuard` unless decorated with `@Public()`.
-- Role-based authorization: Use `@Roles(Role.LANDLORD)` or `@Roles(Role.TENANT)` with `RolesGuard`.
-- Current authenticated user: Injected into controllers using `@CurrentUser() user: AuthenticatedUser`.
+- Current authenticated user: Always injected into controllers using `@CurrentUser() user: JwtPayload` (from `src/modules/auth/interfaces/auth.interface.ts`). Always access `user.userId`, `user.email`, `user.role` from the injected object (do not pluck individual properties via `@CurrentUser('userId')`).
 - Ownership verification: Landlords can only modify their own properties; tenants can only view/sign rentals they are invited to.
 
 ---

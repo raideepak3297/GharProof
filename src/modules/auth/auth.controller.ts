@@ -6,6 +6,8 @@ import { Public } from '../../common/decorators/public.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 
+import { JwtPayload } from './interfaces/auth.interface';
+
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
@@ -25,7 +27,7 @@ export class AuthController {
 
   @UseGuards(JwtAuthGuard)
   @Get('me')
-  async getMe(@CurrentUser('userId') userId: string) {
-    return this.authService.getMe(userId);
+  async getMe(@CurrentUser() user: JwtPayload) {
+    return this.authService.getMe(user.userId);
   }
 }

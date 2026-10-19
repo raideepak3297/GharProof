@@ -18,8 +18,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  async validate(payload: JwtPayload) {
-    const user = await this.usersService.findById(payload.sub);
+  async validate(payload: JwtPayload): Promise<JwtPayload> {
+    const id = payload.userId || payload.sub;
+    const user = await this.usersService.findById(id);
     if (!user) {
       throw new UnauthorizedException('User not found or session expired');
     }

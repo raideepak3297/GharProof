@@ -1,9 +1,4 @@
-import {
-  Injectable,
-  OnModuleInit,
-  OnApplicationShutdown,
-  Logger,
-} from '@nestjs/common';
+import { Injectable, OnModuleInit, OnApplicationShutdown, Logger } from '@nestjs/common';
 import { InjectConnection } from '@nestjs/mongoose';
 import { Connection } from 'mongoose';
 
@@ -17,9 +12,7 @@ export class DatabaseService implements OnModuleInit, OnApplicationShutdown {
     const { host, port, name } = this.connection;
 
     if (this.connection.readyState === 1) {
-      this.logger.log(
-        `MongoDB connected successfully to: mongodb://${host}:${port}/${name}`,
-      );
+      this.logger.log(`MongoDB connected successfully to: mongodb://${host}:${port}/${name}`);
     }
 
     this.connection.on('connected', () => {

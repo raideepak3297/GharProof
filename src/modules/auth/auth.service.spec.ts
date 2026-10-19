@@ -62,6 +62,7 @@ describe('AuthService', () => {
       expect(bcrypt.hash).toHaveBeenCalledWith(registerDto.password, 10);
       expect(mockJwtService.sign).toHaveBeenCalledWith({
         sub: 'userObjId123',
+        userId: 'userObjId123',
         email: registerDto.email,
         role: registerDto.role,
       });

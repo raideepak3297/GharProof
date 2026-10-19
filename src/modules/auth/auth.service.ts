@@ -85,6 +85,7 @@ export class AuthService {
   private generateToken(userId: string, email: string, role: string): string {
     return this.jwtService.sign({
       sub: userId,
+      userId,
       email,
       role,
     });

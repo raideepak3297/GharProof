@@ -31,6 +31,7 @@ description: Use when the user wants a code review on recent NestJS changes befo
    - Response shapes — are we leaking Mongoose internals (`__v`, password hashes, internal flags)?
    - All enums defined in `src/common/enums/index.ts`?
    - All interfaces defined strictly in the module's `interfaces/<feature>.interface.ts` file?
+   - Protected endpoints inject authenticated user as `@CurrentUser() user: JwtPayload` and access `user.userId`?
 
    **Mongoose / MongoDB**
    - Queries that should use `.lean()` for read-only paths?

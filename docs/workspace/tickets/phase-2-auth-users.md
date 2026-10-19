@@ -121,3 +121,10 @@ _Repo: GharProof_
 - `src/modules/auth/auth.module.ts`
 - `src/modules/auth/auth.service.spec.ts`
 - `src/app.module.ts`
+
+---
+
+## Architectural Decision: Controller Current User Parameter Convention
+- **Decision:** Adopted **Option A** (`@CurrentUser() user: JwtPayload`) across all controllers.
+- **Rule:** Handlers must inject the full payload `@CurrentUser() user: JwtPayload` and access `user.userId`, `user.email`, `user.role` directly. Never pluck properties via `@CurrentUser('userId')`.
+- **Rationale:** Clear type-safety, transparency of token identity fields, consistency with codebase rules in `AGENTS.md` and `docs/CODEBASE_CONVENTIONS.md`.

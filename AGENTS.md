@@ -57,6 +57,7 @@ These skills are installed in `.agents/skills/`. Use them by name during tasks:
 ### Must do
 - **Define all enums in the common file (`src/common/enums/index.ts`)** — never create separate enum files inside feature modules; all application and domain enums (`Role`, `RentalStatus`, `InspectionStatus`, etc.) must live in this single centralized file.
 - **Define all module interfaces in the module's dedicated interface file (`src/modules/<feature>/interfaces/<feature>.interface.ts`)** — all interfaces belonging to that module must be defined in only that file, never inline inside services, controllers, or schemas.
+- **Inject authenticated users via `@CurrentUser() user: JwtPayload`** — always inject the full `JwtPayload` object into controller parameters and access `user.userId`, `user.email`, `user.role` (do not pluck individual properties via `@CurrentUser('userId')`).
 - **Validate every controller input via DTO + class-validator** — never accept raw `any` from `@Body()`, `@Query()`, or `@Param()`.
 - **Use NestJS exceptions** (`NotFoundException`, `BadRequestException`, `ConflictException`, `ForbiddenException`, `UnauthorizedException`) — never throw raw `Error`.
 - **Inject services via constructor** — never `new` a service inline.
@@ -71,6 +72,7 @@ These skills are installed in `.agents/skills/`. Use them by name during tasks:
 ### Never do
 - **Never define enums inside feature module folders** — always add them to `src/common/enums/index.ts`.
 - **Never define interfaces inline** across services, controllers, or schemas — always place them in the module's dedicated interface file.
+- **Never pluck user properties via `@CurrentUser('userId')` or `@CurrentUser('prop')`** — always inject `@CurrentUser() user: JwtPayload` and access `user.userId`, `user.email`, `user.role` directly on the object.
 - **Never expose Mongoose documents directly** in API responses. Return clean plain objects or response DTOs stripping `__v`, internal flags, and password hashes.
 - **Never log PII or secrets** (passwords, auth tokens, phone numbers, email addresses).
 - **Never use `findById` inside a `for`/`map` loop** (N+1 query). Use `find({ _id: { $in: ids } })` or aggregation.

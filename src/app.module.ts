@@ -13,6 +13,7 @@ import { RentalsModule } from './modules/rentals/rentals.module';
 import { UploadModule } from './modules/upload/upload.module';
 import { InspectionsModule } from './modules/inspections/inspections.module';
 import { ComparisonModule } from './modules/comparison/comparison.module';
+import { DisputesModule } from './modules/disputes/disputes.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { ComparisonModule } from './modules/comparison/comparison.module';
     UploadModule,
     InspectionsModule,
     ComparisonModule,
+    DisputesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

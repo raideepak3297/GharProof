@@ -4,3 +4,4 @@ export const RENTAL_MODEL = 'RENTAL_MODEL';
 export const UPLOAD_MODEL = 'UPLOAD_MODEL';
 export const INSPECTION_MODEL = 'INSPECTION_MODEL';
 export const ROOM_ITEM_MODEL = 'ROOM_ITEM_MODEL';
+export const DISPUTE_MODEL = 'DISPUTE_MODEL';

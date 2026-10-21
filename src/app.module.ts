@@ -14,6 +14,7 @@ import { UploadModule } from './modules/upload/upload.module';
 import { InspectionsModule } from './modules/inspections/inspections.module';
 import { ComparisonModule } from './modules/comparison/comparison.module';
 import { DisputesModule } from './modules/disputes/disputes.module';
+import { ReportsModule } from './modules/reports/reports.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { DisputesModule } from './modules/disputes/disputes.module';
     InspectionsModule,
     ComparisonModule,
     DisputesModule,
+    ReportsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

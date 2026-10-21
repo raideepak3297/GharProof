@@ -11,6 +11,7 @@ import { UsersModule } from './modules/users/users.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { RentalsModule } from './modules/rentals/rentals.module';
 import { UploadModule } from './modules/upload/upload.module';
+import { InspectionsModule } from './modules/inspections/inspections.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { UploadModule } from './modules/upload/upload.module';
     AuthModule,
     RentalsModule,
     UploadModule,
+    InspectionsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

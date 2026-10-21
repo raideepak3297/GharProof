@@ -64,6 +64,7 @@ describe('InspectionsService', () => {
 
     mockMongoDbRoomItemService = {
       create: jest.fn(),
+      createMany: jest.fn(),
       findByInspectionId: jest.fn(),
       findById: jest.fn(),
       update: jest.fn(),
@@ -212,7 +213,7 @@ describe('InspectionsService', () => {
         status: InspectionStatus.DRAFT,
       };
       mockMongoDbInspectionService.create.mockResolvedValue(createdMoveOut);
-      mockMongoDbRoomItemService.create.mockResolvedValue({});
+      mockMongoDbRoomItemService.createMany.mockResolvedValue([]);
 
       const result = await service.createInspection(
         validRentalId,
@@ -221,8 +222,7 @@ describe('InspectionsService', () => {
       );
 
       expect(result).toEqual(createdMoveOut);
-      expect(mockMongoDbRoomItemService.create).toHaveBeenCalledTimes(2);
-      expect(mockMongoDbRoomItemService.create).toHaveBeenCalledWith(
+      expect(mockMongoDbRoomItemService.createMany).toHaveBeenCalledWith([
         expect.objectContaining({
           inspectionId: moveOutId,
           roomName: 'Living Room',
@@ -230,8 +230,6 @@ describe('InspectionsService', () => {
           condition: ItemCondition.GOOD,
           photos: [],
         }),
-      );
-      expect(mockMongoDbRoomItemService.create).toHaveBeenCalledWith(
         expect.objectContaining({
           inspectionId: moveOutId,
           roomName: 'Kitchen',
@@ -239,7 +237,7 @@ describe('InspectionsService', () => {
           condition: ItemCondition.GOOD,
           photos: [],
         }),
-      );
+      ]);
     });
   });
 

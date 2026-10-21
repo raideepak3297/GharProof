@@ -60,4 +60,4 @@ export class RoomItem implements IRoomItem {
 
 export const RoomItemSchema = SchemaFactory.createForClass(RoomItem);
 
-RoomItemSchema.index({ inspectionId: 1, roomName: 1 });
+RoomItemSchema.index({ inspectionId: 1, roomName: 1, itemName: 1 });

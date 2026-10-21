@@ -101,3 +101,5 @@ export const RentalSchema = SchemaFactory.createForClass(Rental);
 RentalSchema.index({ landlordId: 1, status: 1 });
 RentalSchema.index({ tenantId: 1, status: 1 });
 RentalSchema.index({ tenantInviteEmail: 1, status: 1 });
+RentalSchema.index({ landlordId: 1, createdAt: -1 });
+RentalSchema.index({ tenantId: 1, createdAt: -1 });

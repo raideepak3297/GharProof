@@ -38,12 +38,14 @@ export class ComparisonService {
       this.mongoDbInspectionService.findByRentalAndType(rentalId, InspectionType.MOVE_OUT),
     ]);
 
-    const moveInItems = moveIn
-      ? await this.mongoDbRoomItemService.findByInspectionId(moveIn._id.toString())
-      : [];
-    const moveOutItems = moveOut
-      ? await this.mongoDbRoomItemService.findByInspectionId(moveOut._id.toString())
-      : [];
+    const [moveInItems, moveOutItems] = await Promise.all([
+      moveIn
+        ? this.mongoDbRoomItemService.findByInspectionId(moveIn._id.toString())
+        : Promise.resolve([]),
+      moveOut
+        ? this.mongoDbRoomItemService.findByInspectionId(moveOut._id.toString())
+        : Promise.resolve([]),
+    ]);
 
     const comparisons = this.diffItems(moveInItems, moveOutItems);
     const summary = this.computeSummary(comparisons);

@@ -69,16 +69,15 @@ export class InspectionsService {
 
     // Auto-clone checklist items from move-in as move-out inspection templates
     if (dto.type === InspectionType.MOVE_OUT && moveInItemsToClone.length > 0) {
-      for (const item of moveInItemsToClone) {
-        await this.mongoDbRoomItemService.create({
-          inspectionId: createdInspection._id.toString(),
-          roomName: item.roomName,
-          itemName: item.itemName,
-          condition: item.condition,
-          notes: '',
-          photos: [],
-        });
-      }
+      const clonedItems = moveInItemsToClone.map((item) => ({
+        inspectionId: createdInspection._id.toString(),
+        roomName: item.roomName,
+        itemName: item.itemName,
+        condition: item.condition,
+        notes: '',
+        photos: [],
+      }));
+      await this.mongoDbRoomItemService.createMany(clonedItems);
     }
 
     return createdInspection;

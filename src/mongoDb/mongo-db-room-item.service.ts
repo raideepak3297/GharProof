@@ -33,6 +33,26 @@ export class MongoDbRoomItemService {
     return populated.toObject();
   }
 
+  async createMany(items: ICreateRoomItemInput[]): Promise<IRoomItem[]> {
+    if (!items || items.length === 0) {
+      return [];
+    }
+
+    const docs = items.map((data) => ({
+      inspectionId: new Types.ObjectId(data.inspectionId),
+      roomName: data.roomName.trim(),
+      itemName: data.itemName.trim(),
+      condition: data.condition,
+      notes: data.notes?.trim() || '',
+      photos: (data.photos || [])
+        .filter((id) => Types.ObjectId.isValid(id))
+        .map((id) => new Types.ObjectId(id)),
+    }));
+
+    const inserted = await this.roomItemModel.insertMany(docs);
+    return inserted.map((doc) => doc.toObject() as IRoomItem);
+  }
+
   async findByInspectionId(inspectionId: string): Promise<IRoomItem[]> {
     if (!Types.ObjectId.isValid(inspectionId)) {
       return [];

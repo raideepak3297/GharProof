@@ -34,6 +34,18 @@ export class HttpExceptionFilter implements ExceptionFilter {
         message = body.message || exception.message;
         error = body.error || exception.name;
       }
+    } else if (exception && typeof exception === 'object' && (exception as any).code === 11000) {
+      status = HttpStatus.CONFLICT;
+      message = 'Duplicate key error: A record with that identifier already exists';
+      error = 'Conflict';
+    } else if (
+      exception &&
+      typeof exception === 'object' &&
+      (exception as any).name === 'CastError'
+    ) {
+      status = HttpStatus.BAD_REQUEST;
+      message = `Invalid format for field: ${(exception as any).path}`;
+      error = 'Bad Request';
     } else if (exception instanceof Error) {
       this.logger.error(
         `Unhandled exception on ${request.method} ${request.url}: ${exception.message}`,

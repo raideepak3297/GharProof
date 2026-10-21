@@ -10,6 +10,7 @@ import { MongoDbModule } from './mongoDb/mongo-db.module';
 import { UsersModule } from './modules/users/users.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { RentalsModule } from './modules/rentals/rentals.module';
+import { UploadModule } from './modules/upload/upload.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { RentalsModule } from './modules/rentals/rentals.module';
     UsersModule,
     AuthModule,
     RentalsModule,
+    UploadModule,
   ],
   controllers: [AppController],
   providers: [AppService],

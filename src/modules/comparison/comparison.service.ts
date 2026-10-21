@@ -1,4 +1,5 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { assertRentalAccess } from '../../common/utils/rental-access.util';
 import {
   ComparisonDiffStatus,
   InspectionStatus,
@@ -31,7 +32,7 @@ export class ComparisonService {
       throw new NotFoundException(`Rental with ID ${rentalId} not found`);
     }
 
-    this.verifyRentalAccess(rental, user);
+    assertRentalAccess(rental, user, 'comparisons for this rental');
 
     const [moveIn, moveOut] = await Promise.all([
       this.mongoDbInspectionService.findByRentalAndType(rentalId, InspectionType.MOVE_IN),
@@ -195,22 +196,5 @@ export class ComparisonService {
       missingCount,
       addedCount,
     };
-  }
-
-  private verifyRentalAccess(rental: any, user: JwtPayload): void {
-    const landlordIdStr =
-      (rental.landlordId as any)?._id?.toString() || rental.landlordId?.toString();
-    const tenantIdStr = (rental.tenantId as any)?._id?.toString() || rental.tenantId?.toString();
-    const tenantInviteEmail = rental.tenantInviteEmail?.toLowerCase();
-    const userEmail = user.email.toLowerCase();
-
-    const isAuthorized =
-      landlordIdStr === user.userId ||
-      tenantIdStr === user.userId ||
-      (tenantInviteEmail && tenantInviteEmail === userEmail);
-
-    if (!isAuthorized) {
-      throw new ForbiddenException('You do not have access to comparisons for this rental');
-    }
   }
 }

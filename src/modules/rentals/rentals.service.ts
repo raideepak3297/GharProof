@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { Types } from 'mongoose';
 import { RentalStatus } from '../../common/enums';
+import { assertRentalAccess } from '../../common/utils/rental-access.util';
 import { MongoDbRentalService } from '../../mongoDb/mongo-db-rental.service';
 import { JwtPayload } from '../auth/interfaces/auth.interface';
 import { CreateRentalDto } from './dto/create-rental.dto';
@@ -50,17 +51,7 @@ export class RentalsService {
       throw new NotFoundException('Rental not found');
     }
 
-    const landlordIdStr = ((rental.landlordId as any)?._id || rental.landlordId)?.toString();
-
-    const tenantIdStr = ((rental.tenantId as any)?._id || rental.tenantId)?.toString();
-
-    const isLandlord = landlordIdStr === user.userId;
-    const isAssignedTenant = tenantIdStr === user.userId;
-    const isInvitedTenant = rental.tenantInviteEmail?.toLowerCase() === user.email.toLowerCase();
-
-    if (!isLandlord && !isAssignedTenant && !isInvitedTenant) {
-      throw new ForbiddenException('You do not have permission to access this rental');
-    }
+    assertRentalAccess(rental, user, 'this rental');
 
     return rental;
   }

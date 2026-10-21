@@ -1,16 +1,21 @@
 import {
   BadRequestException,
   ConflictException,
-  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { DisputeTenantStatus } from '../../common/enums';
+import {
+  assertLandlordAccess,
+  assertRentalAccess,
+  assertTenantAccess,
+} from '../../common/utils/rental-access.util';
 import { MongoDbDisputeService } from '../../mongoDb/mongo-db-dispute.service';
 import { MongoDbRentalService } from '../../mongoDb/mongo-db-rental.service';
 import { MongoDbRoomItemService } from '../../mongoDb/mongo-db-room-item.service';
 import { MongoDbUploadService } from '../../mongoDb/mongo-db-upload.service';
 import { JwtPayload } from '../auth/interfaces/auth.interface';
+import { IRental } from '../rentals/interfaces/rental.interface';
 import { CreateDisputeDto } from './dto/create-dispute.dto';
 import { RespondDisputeDto } from './dto/respond-dispute.dto';
 import {
@@ -33,16 +38,8 @@ export class DisputesService {
     dto: CreateDisputeDto,
     user: JwtPayload,
   ): Promise<IDispute> {
-    const rental = await this.mongoDbRentalService.findById(rentalId);
-    if (!rental) {
-      throw new NotFoundException(`Rental with ID ${rentalId} not found`);
-    }
-
-    const landlordIdStr =
-      (rental.landlordId as any)?._id?.toString() || rental.landlordId?.toString();
-    if (landlordIdStr !== user.userId) {
-      throw new ForbiddenException('Only the landlord of this rental can propose deductions');
-    }
+    const rental = await this.getRentalOrThrow(rentalId);
+    assertLandlordAccess(rental, user, 'propose deductions for this rental');
 
     if (dto.roomItemId) {
       const roomItem = await this.mongoDbRoomItemService.findById(dto.roomItemId);
@@ -71,29 +68,15 @@ export class DisputesService {
   }
 
   async getDisputesByRental(rentalId: string, user: JwtPayload): Promise<IDispute[]> {
-    const rental = await this.mongoDbRentalService.findById(rentalId);
-    if (!rental) {
-      throw new NotFoundException(`Rental with ID ${rentalId} not found`);
-    }
-
-    this.verifyRentalAccess(rental, user);
+    const rental = await this.getRentalOrThrow(rentalId);
+    assertRentalAccess(rental, user, 'disputes for this rental');
     return this.mongoDbDisputeService.findByRentalId(rentalId);
   }
 
   async getDisputeById(rentalId: string, disputeId: string, user: JwtPayload): Promise<IDispute> {
-    const rental = await this.mongoDbRentalService.findById(rentalId);
-    if (!rental) {
-      throw new NotFoundException(`Rental with ID ${rentalId} not found`);
-    }
-
-    this.verifyRentalAccess(rental, user);
-
-    const dispute = await this.mongoDbDisputeService.findById(disputeId);
-    if (!dispute || dispute.rentalId.toString() !== rentalId) {
-      throw new NotFoundException(`Dispute with ID ${disputeId} not found for this rental`);
-    }
-
-    return dispute;
+    const rental = await this.getRentalOrThrow(rentalId);
+    assertRentalAccess(rental, user, 'disputes for this rental');
+    return this.getDisputeOrThrow(rentalId, disputeId);
   }
 
   async respondToDispute(
@@ -102,26 +85,10 @@ export class DisputesService {
     dto: RespondDisputeDto,
     user: JwtPayload,
   ): Promise<IDispute> {
-    const rental = await this.mongoDbRentalService.findById(rentalId);
-    if (!rental) {
-      throw new NotFoundException(`Rental with ID ${rentalId} not found`);
-    }
+    const rental = await this.getRentalOrThrow(rentalId);
+    assertTenantAccess(rental, user, 'respond to deductions for this rental');
 
-    const tenantIdStr = (rental.tenantId as any)?._id?.toString() || rental.tenantId?.toString();
-    const tenantInviteEmail = rental.tenantInviteEmail?.toLowerCase();
-    const userEmail = user.email.toLowerCase();
-
-    const isTenant =
-      tenantIdStr === user.userId || (tenantInviteEmail && tenantInviteEmail === userEmail);
-
-    if (!isTenant) {
-      throw new ForbiddenException('Only the tenant of this rental can respond to deductions');
-    }
-
-    const dispute = await this.mongoDbDisputeService.findById(disputeId);
-    if (!dispute || dispute.rentalId.toString() !== rentalId) {
-      throw new NotFoundException(`Dispute with ID ${disputeId} not found for this rental`);
-    }
+    const dispute = await this.getDisputeOrThrow(rentalId, disputeId);
 
     if (dispute.resolved) {
       throw new ConflictException('This dispute is already resolved');
@@ -151,12 +118,8 @@ export class DisputesService {
     rentalId: string,
     user: JwtPayload,
   ): Promise<IDisputeSettlementResponse> {
-    const rental = await this.mongoDbRentalService.findById(rentalId);
-    if (!rental) {
-      throw new NotFoundException(`Rental with ID ${rentalId} not found`);
-    }
-
-    this.verifyRentalAccess(rental, user);
+    const rental = await this.getRentalOrThrow(rentalId);
+    assertRentalAccess(rental, user, 'disputes for this rental');
 
     const disputes = await this.mongoDbDisputeService.findByRentalId(rentalId);
     const depositAmount = rental.depositAmount || 0;
@@ -195,20 +158,19 @@ export class DisputesService {
     };
   }
 
-  private verifyRentalAccess(rental: any, user: JwtPayload): void {
-    const landlordIdStr =
-      (rental.landlordId as any)?._id?.toString() || rental.landlordId?.toString();
-    const tenantIdStr = (rental.tenantId as any)?._id?.toString() || rental.tenantId?.toString();
-    const tenantInviteEmail = rental.tenantInviteEmail?.toLowerCase();
-    const userEmail = user.email.toLowerCase();
-
-    const isAuthorized =
-      landlordIdStr === user.userId ||
-      tenantIdStr === user.userId ||
-      (tenantInviteEmail && tenantInviteEmail === userEmail);
-
-    if (!isAuthorized) {
-      throw new ForbiddenException('You do not have access to disputes for this rental');
+  private async getRentalOrThrow(rentalId: string): Promise<IRental> {
+    const rental = await this.mongoDbRentalService.findById(rentalId);
+    if (!rental) {
+      throw new NotFoundException(`Rental with ID ${rentalId} not found`);
     }
+    return rental;
+  }
+
+  private async getDisputeOrThrow(rentalId: string, disputeId: string): Promise<IDispute> {
+    const dispute = await this.mongoDbDisputeService.findById(disputeId);
+    if (!dispute || dispute.rentalId.toString() !== rentalId) {
+      throw new NotFoundException(`Dispute with ID ${disputeId} not found for this rental`);
+    }
+    return dispute;
   }
 }

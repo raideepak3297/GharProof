@@ -5,8 +5,14 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import * as crypto from 'crypto';
-import { InspectionStatus, InspectionType, Role } from '../../common/enums';
+import { InspectionStatus, InspectionType } from '../../common/enums';
+import { computeSha256 } from '../../common/utils/crypto-hash.util';
+import {
+  assertRentalAccess,
+  extractEntityId,
+  isUserLandlord,
+  isUserTenant,
+} from '../../common/utils/rental-access.util';
 import { MongoDbInspectionService } from '../../mongoDb/mongo-db-inspection.service';
 import { MongoDbRentalService } from '../../mongoDb/mongo-db-rental.service';
 import { MongoDbRoomItemService } from '../../mongoDb/mongo-db-room-item.service';
@@ -37,7 +43,7 @@ export class InspectionsService {
       throw new NotFoundException(`Rental with ID ${rentalId} not found`);
     }
 
-    this.verifyRentalAccess(rental, user);
+    assertRentalAccess(rental, user, 'inspections for this rental');
 
     const existing = await this.mongoDbInspectionService.findByRentalAndType(rentalId, dto.type);
     if (existing) {
@@ -89,11 +95,12 @@ export class InspectionsService {
       throw new NotFoundException(`Inspection with ID ${inspectionId} not found`);
     }
 
-    const rentalId =
-      (inspection.rentalId as any)?._id?.toString() || inspection.rentalId.toString();
-    const rental = await this.mongoDbRentalService.findById(rentalId);
-    if (rental) {
-      this.verifyRentalAccess(rental, user);
+    const rentalId = extractEntityId(inspection.rentalId);
+    if (rentalId) {
+      const rental = await this.mongoDbRentalService.findById(rentalId);
+      if (rental) {
+        assertRentalAccess(rental, user, 'inspections for this rental');
+      }
     }
 
     const items = await this.mongoDbRoomItemService.findByInspectionId(inspectionId);
@@ -108,29 +115,8 @@ export class InspectionsService {
     dto: CreateRoomItemDto,
     user: JwtPayload,
   ): Promise<IRoomItem> {
-    const inspection = await this.mongoDbInspectionService.findById(inspectionId);
-    if (!inspection) {
-      throw new NotFoundException(`Inspection with ID ${inspectionId} not found`);
-    }
-
-    if (inspection.status === InspectionStatus.LOCKED) {
-      throw new ForbiddenException('Inspection is locked and cannot be modified');
-    }
-
-    const rentalId =
-      (inspection.rentalId as any)?._id?.toString() || inspection.rentalId.toString();
-    const rental = await this.mongoDbRentalService.findById(rentalId);
-    if (rental) {
-      this.verifyRentalAccess(rental, user);
-    }
-
-    // Verify provided photo upload IDs exist
-    if (dto.photos && dto.photos.length > 0) {
-      const uploads = await this.mongoDbUploadService.findByIds(dto.photos);
-      if (uploads.length !== dto.photos.length) {
-        throw new BadRequestException('One or more photo upload IDs are invalid or not found');
-      }
-    }
+    await this.getEditableInspectionWithAccess(inspectionId, user);
+    await this.validatePhotosExist(dto.photos);
 
     return this.mongoDbRoomItemService.create({
       inspectionId,
@@ -148,6 +134,26 @@ export class InspectionsService {
     dto: UpdateRoomItemDto,
     user: JwtPayload,
   ): Promise<IRoomItem> {
+    await this.getEditableInspectionWithAccess(inspectionId, user);
+
+    const item = await this.mongoDbRoomItemService.findById(itemId);
+    if (!item || item.inspectionId.toString() !== inspectionId) {
+      throw new NotFoundException(`Room item with ID ${itemId} not found in this inspection`);
+    }
+
+    await this.validatePhotosExist(dto.photos);
+
+    const updated = await this.mongoDbRoomItemService.update(itemId, dto);
+    if (!updated) {
+      throw new NotFoundException(`Room item with ID ${itemId} not found`);
+    }
+    return updated;
+  }
+
+  private async getEditableInspectionWithAccess(
+    inspectionId: string,
+    user: JwtPayload,
+  ): Promise<IInspection> {
     const inspection = await this.mongoDbInspectionService.findById(inspectionId);
     if (!inspection) {
       throw new NotFoundException(`Inspection with ID ${inspectionId} not found`);
@@ -157,30 +163,24 @@ export class InspectionsService {
       throw new ForbiddenException('Inspection is locked and cannot be modified');
     }
 
-    const rentalId =
-      (inspection.rentalId as any)?._id?.toString() || inspection.rentalId.toString();
-    const rental = await this.mongoDbRentalService.findById(rentalId);
-    if (rental) {
-      this.verifyRentalAccess(rental, user);
-    }
-
-    const item = await this.mongoDbRoomItemService.findById(itemId);
-    if (!item || item.inspectionId.toString() !== inspectionId) {
-      throw new NotFoundException(`Room item with ID ${itemId} not found in this inspection`);
-    }
-
-    if (dto.photos && dto.photos.length > 0) {
-      const uploads = await this.mongoDbUploadService.findByIds(dto.photos);
-      if (uploads.length !== dto.photos.length) {
-        throw new BadRequestException('One or more photo upload IDs are invalid or not found');
+    const rentalId = extractEntityId(inspection.rentalId);
+    if (rentalId) {
+      const rental = await this.mongoDbRentalService.findById(rentalId);
+      if (rental) {
+        assertRentalAccess(rental, user, 'inspections for this rental');
       }
     }
 
-    const updated = await this.mongoDbRoomItemService.update(itemId, dto);
-    if (!updated) {
-      throw new NotFoundException(`Room item with ID ${itemId} not found`);
+    return inspection;
+  }
+
+  private async validatePhotosExist(photos?: string[]): Promise<void> {
+    if (photos && photos.length > 0) {
+      const uploads = await this.mongoDbUploadService.findByIds(photos);
+      if (uploads.length !== photos.length) {
+        throw new BadRequestException('One or more photo upload IDs are invalid or not found');
+      }
     }
-    return updated;
   }
 
   async signOff(
@@ -197,17 +197,15 @@ export class InspectionsService {
       throw new ForbiddenException('Inspection is already locked and immutable');
     }
 
-    const rental = await this.mongoDbRentalService.findById(inspectionDoc.rentalId.toString());
+    const rental = await this.mongoDbRentalService.findById(
+      extractEntityId(inspectionDoc.rentalId)!,
+    );
     if (!rental) {
       throw new NotFoundException('Associated rental not found');
     }
 
-    const landlordIdStr =
-      (rental.landlordId as any)?._id?.toString() || rental.landlordId?.toString();
-    const tenantIdStr = (rental.tenantId as any)?._id?.toString() || rental.tenantId?.toString();
-
-    const isLandlord = landlordIdStr === user.userId;
-    const isTenant = tenantIdStr === user.userId;
+    const isLandlord = isUserLandlord(rental, user);
+    const isTenant = isUserTenant(rental, user);
 
     if (!isLandlord && !isTenant) {
       throw new ForbiddenException('You are not authorized to sign off on this inspection');
@@ -268,10 +266,7 @@ export class InspectionsService {
         })),
       };
 
-      const rootHash = crypto
-        .createHash('sha256')
-        .update(JSON.stringify(canonicalPayload))
-        .digest('hex');
+      const rootHash = computeSha256(JSON.stringify(canonicalPayload));
 
       inspectionDoc.rootHash = rootHash;
       inspectionDoc.status = InspectionStatus.LOCKED;
@@ -287,22 +282,5 @@ export class InspectionsService {
       ...inspectionDoc.toObject(),
       items,
     };
-  }
-
-  private verifyRentalAccess(rental: any, user: JwtPayload): void {
-    const landlordIdStr =
-      (rental.landlordId as any)?._id?.toString() || rental.landlordId?.toString();
-    const tenantIdStr = (rental.tenantId as any)?._id?.toString() || rental.tenantId?.toString();
-    const tenantInviteEmail = rental.tenantInviteEmail?.toLowerCase();
-    const userEmail = user.email.toLowerCase();
-
-    const isAuthorized =
-      landlordIdStr === user.userId ||
-      tenantIdStr === user.userId ||
-      (tenantInviteEmail && tenantInviteEmail === userEmail);
-
-    if (!isAuthorized) {
-      throw new ForbiddenException('You do not have access to inspections for this rental');
-    }
   }
 }

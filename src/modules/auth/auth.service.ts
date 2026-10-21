@@ -39,13 +39,7 @@ export class AuthService {
 
     return {
       accessToken,
-      user: {
-        id: user._id.toString(),
-        name: user.name,
-        email: user.email,
-        phone: user.phone,
-        role: user.role,
-      },
+      user: this.toAuthUser(user),
     };
   }
 
@@ -64,13 +58,7 @@ export class AuthService {
 
     return {
       accessToken,
-      user: {
-        id: user._id.toString(),
-        name: user.name,
-        email: user.email,
-        phone: user.phone,
-        role: user.role,
-      },
+      user: this.toAuthUser(user),
     };
   }
 
@@ -80,6 +68,22 @@ export class AuthService {
       throw new NotFoundException('User not found');
     }
     return user;
+  }
+
+  private toAuthUser(user: {
+    _id: { toString(): string };
+    name: string;
+    email: string;
+    phone: string;
+    role: any;
+  }) {
+    return {
+      id: user._id.toString(),
+      name: user.name,
+      email: user.email,
+      phone: user.phone,
+      role: user.role,
+    };
   }
 
   private generateToken(userId: string, email: string, role: string): string {

@@ -9,6 +9,7 @@ import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
+import { computeSha256 } from '../../common/utils/crypto-hash.util';
 import { MongoDbUploadService } from '../../mongoDb/mongo-db-upload.service';
 import { IUpload } from './interfaces/upload.interface';
 
@@ -43,7 +44,7 @@ export class UploadService {
     this.validateFile(file);
 
     // Compute SHA-256 hash of file content
-    const sha256Hash = crypto.createHash('sha256').update(file.buffer).digest('hex');
+    const sha256Hash = computeSha256(file.buffer);
 
     // Generate unique storage filename and path
     const now = new Date();
@@ -79,12 +80,7 @@ export class UploadService {
       throw new BadRequestException('No files provided for upload');
     }
 
-    const uploads: IUpload[] = [];
-    for (const file of files) {
-      const upload = await this.processSingleUpload(file, userId);
-      uploads.push(upload);
-    }
-    return uploads;
+    return Promise.all(files.map((file) => this.processSingleUpload(file, userId)));
   }
 
   async getUploadById(id: string): Promise<IUpload> {

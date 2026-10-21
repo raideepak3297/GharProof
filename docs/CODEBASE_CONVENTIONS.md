@@ -12,7 +12,7 @@ _Runtime: Node.js (LTS) | Framework: NestJS | Database: MongoDB via Mongoose | L
   ```text
   src/
   ├── main.ts                  # Bootstrap + ValidationPipe + Global Filters + CORS
-  ├── app.module.ts            # Root module importing ConfigModule, DatabaseModule & feature modules
+  ├── app.module.ts            # Root module importing ConfigModule, DatabaseModule, MongoDbModule & feature modules
   ├── common/                  # Cross-cutting concerns
   │   ├── decorators/          # @CurrentUser(), @Roles(), @Public()
   │   ├── enums/               # index.ts - ALL system & domain enums defined here
@@ -23,13 +23,18 @@ _Runtime: Node.js (LTS) | Framework: NestJS | Database: MongoDB via Mongoose | L
   ├── config/                  # Configuration loader + env validation
   ├── database/                # DatabaseModule & DatabaseService (connection lifecycle & logging)
   ├── logger/                  # Structured LoggerService
+  ├── mongoDb/                 # Data Access Layer (DAL)
+  │   ├── schema/              # ALL Mongoose schemas defined centrally here (user.schema.ts, rental.schema.ts, etc.)
+  │   ├── mongo-db-user.service.ts    # MongoDB queries for User entity
+  │   ├── mongo-db-rental.service.ts  # MongoDB queries for Rental entity
+  │   └── mongo-db.module.ts          # Exports DAL query services
   ├── modules/                 # Feature domain modules
   │   ├── auth/                # AuthController, AuthService, JwtStrategy, interfaces/
-  │   ├── users/               # UserController, UserService, UserSchema, DTOs, interfaces/
-  │   ├── rentals/             # RentalsController, RentalsService, RentalSchema, DTOs, interfaces/
-  │   ├── inspections/         # InspectionsController, InspectionsService, InspectionSchema, RoomItemSchema, interfaces/
+  │   ├── users/               # UserController, UserService, DTOs, interfaces/
+  │   ├── rentals/             # RentalsController, RentalsService, DTOs, interfaces/
+  │   ├── inspections/         # InspectionsController, InspectionsService, interfaces/
   │   ├── comparison/          # ComparisonController, ComparisonService, DTOs, interfaces/
-  │   ├── disputes/            # DisputesController, DisputesService, DisputeSchema, DTOs, interfaces/
+  │   ├── disputes/            # DisputesController, DisputesService, DTOs, interfaces/
   │   ├── reports/             # ReportsController, ReportsService (PDFKit generator), interfaces/
   │   └── storage/             # StorageService (Multer disk storage + SHA-256 streaming)
   ```
@@ -47,8 +52,6 @@ _Runtime: Node.js (LTS) | Framework: NestJS | Database: MongoDB via Mongoose | L
   │   └── <feature>-response.dto.ts
   ├── interfaces/
   │   └── <feature>.interface.ts  # ALL interfaces for this module defined strictly here
-  ├── schemas/
-  │   └── <feature>.schema.ts
   ├── <feature>.controller.ts
   ├── <feature>.service.ts
   ├── <feature>.module.ts
@@ -56,6 +59,8 @@ _Runtime: Node.js (LTS) | Framework: NestJS | Database: MongoDB via Mongoose | L
   ```
 - **Strict Rule for Enums**: All enums MUST be defined in the central file `src/common/enums/index.ts`. Never create separate enum files inside module folders.
 - **Strict Rule for Interfaces**: Every module MUST have its dedicated interface file `src/modules/<feature>/interfaces/<feature>.interface.ts`. ALL interfaces for that module MUST be defined strictly within that file. Never define interfaces inline inside services, controllers, or schemas.
+- **Strict Rule for Schemas**: All Mongoose schemas MUST be defined in `src/mongoDb/schema/<entity>.schema.ts`. Never create schema folders or schema files inside feature modules.
+- **Strict Rule for Database Queries**: All direct Mongoose queries and `@InjectModel(...)` calls must live in dedicated MongoDB services (`src/mongoDb/mongo-db-<entity>.service.ts`). Feature domain services must inject these MongoDB services and contain only business logic, never raw queries.
 - If a service or model is needed by another module, export it explicitly in `exports` of `<feature>.module.ts`.
 - Circular dependencies between modules (e.g., `Rentals ↔ Inspections`) must be resolved using `forwardRef(() => XModule)` in both module imports and constructor injections.
 
@@ -64,7 +69,8 @@ _Runtime: Node.js (LTS) | Framework: NestJS | Database: MongoDB via Mongoose | L
 ## 3. Controllers & Routing
 
 - Route prefix: **kebab-case** (`@Controller("rentals")`, `@Controller("inspections")`).
-- Decorator order on handlers: `@Public()` / `@Roles()` → HTTP verb decorator (`@Get`, `@Post`, `@Patch`) → handler method.
+- **Route-Level Guards**: Apply guards (`@UseGuards(JwtAuthGuard)`, `@UseGuards(JwtAuthGuard, RolesGuard)`) strictly at the individual handler method level, NEVER at the `@Controller(...)` class level. This guarantees individual routes can be public, optional, or specifically protected without inheritance conflicts.
+- Decorator order on handlers: HTTP verb decorator (`@Get`, `@Post`, `@Patch`) → `@Roles()` (if role restricted) → `@UseGuards(...)` → handler method.
 - Controller methods must remain **thin**:
   - Accept validated DTOs, route params, query params, and authenticated user via `@CurrentUser() user: JwtPayload` (Option A pattern; never pluck via `@CurrentUser('userId')`).
   - Pass clean arguments to service methods.
@@ -82,7 +88,8 @@ _Runtime: Node.js (LTS) | Framework: NestJS | Database: MongoDB via Mongoose | L
 
 ## 4. Services & Business Logic
 
-- Services are the single home for business logic, entity state validations, and database interactions.
+- Services are the single home for business logic, entity state validations, and orchestration.
+- **Database Query Delegation**: Services must not query Mongoose models directly; inject and delegate to `MongoDb<Entity>Service` (e.g. `MongoDbUserService`, `MongoDbRentalService`).
 - **Lock & Immutability checks**: Any service updating an inspection, room item, or photo must check:
   ```typescript
   if (inspection.status === InspectionStatus.LOCKED) {
@@ -96,6 +103,8 @@ _Runtime: Node.js (LTS) | Framework: NestJS | Database: MongoDB via Mongoose | L
 
 ## 5. Mongoose Schemas & MongoDB Conventions
 
+- **Centralized Location**: All schemas MUST reside directly inside `src/mongoDb/schema/<entity>.schema.ts` (e.g. `src/mongoDb/schema/user.schema.ts`, `src/mongoDb/schema/rental.schema.ts`). Never create schemas in feature modules.
+- **Query Encapsulation**: All Mongoose queries live in `src/mongoDb/mongo-db-<entity>.service.ts`.
 - **Schema definition**:
   - Always use `@Schema({ timestamps: true, collection: 'plural_name' })`.
   - Use explicit `@Prop({ required: true })`, `@Prop({ index: true })`, and enum validations.
@@ -109,6 +118,29 @@ _Runtime: Node.js (LTS) | Framework: NestJS | Database: MongoDB via Mongoose | L
   - **Always use `.lean()` on read-only queries** to avoid Mongoose document hydration overhead.
 - **N+1 Avoidance**:
   - Never call `findById` inside loops (`for`, `map`, `forEach`). Use `find({ _id: { $in: ids } })` or MongoDB aggregation pipelines.
+- **Model Tokens & Dependency Injection**:
+  - Model tokens are defined as `SCREAMING_SNAKE_CASE` string constants in `src/mongoDb/type/constant.ts` (e.g. `USER_MODEL = 'USER_MODEL'`, `RENTAL_MODEL = 'RENTAL_MODEL'`).
+  - In `src/mongoDb/mongo-db.module.ts`, models are provided using factory providers connected via `MONGODB_CONNECTION`:
+    ```typescript
+    {
+      provide: RENTAL_MODEL,
+      useFactory: (connection: Connection) => {
+        return connection.models[Rental.name] || connection.model(Rental.name, RentalSchema);
+      },
+      inject: [MONGODB_CONNECTION],
+    }
+    ```
+  - In `mongo-db-<entity>.service.ts`, models are injected with `@Inject(MODEL_TOKEN)`:
+    ```typescript
+    constructor(
+      @Inject(RENTAL_MODEL) private readonly rentalModel: Model<RentalDocument>,
+    ) {}
+    ```
+  - **Never use `@InjectModel(...)` or `MongooseModule.forFeature(...)`.**
+- **Populate Configuration (`POPULATE_TAB`)**:
+  - Whenever defining a population configuration array (`POPULATE_TAB`) in a `mongo-db-<entity>.service.ts` file, it **must always be defined at the very bottom (last)** of the file, after the service class definition (never at the top).
+
+
 
 ---
 

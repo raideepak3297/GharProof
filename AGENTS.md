@@ -57,6 +57,10 @@ These skills are installed in `.agents/skills/`. Use them by name during tasks:
 ### Must do
 - **Define all enums in the common file (`src/common/enums/index.ts`)** — never create separate enum files inside feature modules; all application and domain enums (`Role`, `RentalStatus`, `InspectionStatus`, etc.) must live in this single centralized file.
 - **Define all module interfaces in the module's dedicated interface file (`src/modules/<feature>/interfaces/<feature>.interface.ts`)** — all interfaces belonging to that module must be defined in only that file, never inline inside services, controllers, or schemas.
+- **Define all Mongoose schemas in the centralized directory (`src/mongoDb/schema/<entity>.schema.ts`)** — never create schema folders or schema files inside feature modules; all schemas (`User`, `Rental`, `Inspection`, etc.) must live directly in `src/mongoDb/schema/`.
+- **Encapsulate all database queries in dedicated MongoDB services (`src/mongoDb/mongo-db-<entity>.service.ts`)** — all direct Mongoose queries (`find`, `findById`, `create`, `updateOne`, `.lean()`, etc.) must live in these query services. Feature domain services (`UsersService`, `RentalsService`, etc.) must inject these MongoDB services and contain only business logic, orchestration, and validations.
+- **Define model tokens in `src/mongoDb/type/constant.ts` and inject models using `@Inject(MODEL_TOKEN)`** — never use `@InjectModel(...)` or `MongooseModule.forFeature(...)`. In `MongoDbModule`, provide models via factory providers using `MONGODB_CONNECTION` and `Connection.model(...)`.
+- **Apply guards strictly at the route handler level** — never apply `@UseGuards(...)` at the `@Controller(...)` class level. Each endpoint must declare its own protection (`@UseGuards(JwtAuthGuard)` or `@UseGuards(JwtAuthGuard, RolesGuard)`), allowing full flexibility for public, optional, or specialized routes.
 - **Inject authenticated users via `@CurrentUser() user: JwtPayload`** — always inject the full `JwtPayload` object into controller parameters and access `user.userId`, `user.email`, `user.role` (do not pluck individual properties via `@CurrentUser('userId')`).
 - **Validate every controller input via DTO + class-validator** — never accept raw `any` from `@Body()`, `@Query()`, or `@Param()`.
 - **Use NestJS exceptions** (`NotFoundException`, `BadRequestException`, `ConflictException`, `ForbiddenException`, `UnauthorizedException`) — never throw raw `Error`.
@@ -66,12 +70,18 @@ These skills are installed in `.agents/skills/`. Use them by name during tasks:
 - **Add an index** for any new query pattern. Use `@Prop({ index: true })` for single-field, `schema.index({...})` for compound indexes.
 - **Enforce inspection locks**: Disallow any modifications to `inspections`, `room_items`, or photos once `status === 'locked'`.
 - **Compute SHA-256 hashes** for all uploaded photos and compute composite `rootHash` when both parties sign off.
+- **Define populate configurations (`POPULATE_TAB`) at the very bottom of the file** — in any `mongo-db-<entity>.service.ts`, always define `const POPULATE_TAB = [...]` after the service class definition, never at the top.
 - **Run `npm run build` and `npm run lint`** before considering work done.
 - **Update ticket log** in `docs/workspace/tickets/{ID-OR-SLUG}.md` as decisions happen.
 
 ### Never do
 - **Never define enums inside feature module folders** — always add them to `src/common/enums/index.ts`.
 - **Never define interfaces inline** across services, controllers, or schemas — always place them in the module's dedicated interface file.
+- **Never define schemas inside feature module folders** — always place all Mongoose schemas directly in `src/mongoDb/schema/`.
+- **Never write direct Mongoose queries inside feature domain services** — always encapsulate queries in `src/mongoDb/mongo-db-<entity>.service.ts`.
+- **Never use `@InjectModel(...)` or `MongooseModule.forFeature(...)`** — always define string tokens in `src/mongoDb/type/constant.ts` (e.g. `USER_MODEL`, `RENTAL_MODEL`), provide them with `Connection.model(...)` in `MongoDbModule`, and inject them with `@Inject(MODEL_TOKEN)`.
+- **Never define `POPULATE_TAB` or populate options at the top of the file** — always define them at the bottom of the file after the class.
+- **Never apply `@UseGuards(...)` at the controller class level** — always apply guards per route handler method.
 - **Never pluck user properties via `@CurrentUser('userId')` or `@CurrentUser('prop')`** — always inject `@CurrentUser() user: JwtPayload` and access `user.userId`, `user.email`, `user.role` directly on the object.
 - **Never expose Mongoose documents directly** in API responses. Return clean plain objects or response DTOs stripping `__v`, internal flags, and password hashes.
 - **Never log PII or secrets** (passwords, auth tokens, phone numbers, email addresses).

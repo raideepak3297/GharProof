@@ -43,7 +43,12 @@ description: Use after a ticket-kickoff plan has been approved and it's time to 
    - If a service is consumed by another module, add it to `exports`
    - All enums must be defined in `src/common/enums/index.ts` — never create separate enum files in modules
    - All interfaces must be defined in the module's dedicated interface file (`interfaces/<feature>.interface.ts`) — never inline in services, controllers, or schemas
+   - All Mongoose schemas must be defined in `src/mongoDb/schema/<entity>.schema.ts` — never create schemas in feature modules
+   - All database queries must be encapsulated in `src/mongoDb/mongo-db-<entity>.service.ts` — never query Mongoose models directly in feature domain services
+   - In MongoDB services, inject models with `@Inject(MODEL_TOKEN)` using constants from `src/mongoDb/type/constant.ts` (never use `@InjectModel(...)` or `MongooseModule.forFeature(...)`)
+   - Apply `@UseGuards(...)` strictly at the route handler method level — never at the controller class level
    - In protected controller endpoints, inject the authenticated user as `@CurrentUser() user: JwtPayload` and access `user.userId`, `user.email`, `user.role`
+   - Define populate configurations (`POPULATE_TAB`) at the very bottom of `mongo-db-<entity>.service.ts` files after the class, never at the top
 
 6. **Stop on ambiguity.** Schema shape unclear? Multiple valid patterns in neighboring code? Unsure if a field should be indexed? Ask. Don't guess.
 

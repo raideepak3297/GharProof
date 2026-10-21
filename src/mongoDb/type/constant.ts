@@ -1,0 +1,3 @@
+export const MONGODB_CONNECTION = 'MONGODB_CONNECTION';
+export const USER_MODEL = 'USER_MODEL';
+export const RENTAL_MODEL = 'RENTAL_MODEL';

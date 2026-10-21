@@ -6,8 +6,10 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 
 import { DatabaseModule } from './database/database.module';
+import { MongoDbModule } from './mongoDb/mongo-db.module';
 import { UsersModule } from './modules/users/users.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { RentalsModule } from './modules/rentals/rentals.module';
 
 @Module({
   imports: [
@@ -18,8 +20,10 @@ import { AuthModule } from './modules/auth/auth.module';
       envFilePath: ['.env', '.env.example'],
     }),
     DatabaseModule,
+    MongoDbModule,
     UsersModule,
     AuthModule,
+    RentalsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

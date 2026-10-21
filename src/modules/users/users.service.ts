@@ -1,27 +1,25 @@
 import { Injectable } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
-import { User, UserDocument } from './schemas/user.schema';
+import { MongoDbUserService } from '../../mongoDb/mongo-db-user.service';
+import { User, UserDocument } from '../../mongoDb/schema/user.schema';
 import { CreateUserDto } from './dto/create-user.dto';
 
 @Injectable()
 export class UsersService {
-  constructor(@InjectModel(User.name) private readonly userModel: Model<UserDocument>) {}
+  constructor(private readonly mongoDbUserService: MongoDbUserService) {}
 
   async create(createUserDto: CreateUserDto): Promise<UserDocument> {
-    const createdUser = new this.userModel(createUserDto);
-    return createdUser.save();
+    return this.mongoDbUserService.create(createUserDto);
   }
 
   async findByEmail(email: string): Promise<UserDocument | null> {
-    return this.userModel.findOne({ email: email.toLowerCase() }).exec();
+    return this.mongoDbUserService.findByEmail(email);
   }
 
   async findById(id: string): Promise<UserDocument | null> {
-    return this.userModel.findById(id).exec();
+    return this.mongoDbUserService.findById(id);
   }
 
-  async findCleanById(id: string) {
-    return this.userModel.findById(id).select('-passwordHash -__v').lean().exec();
+  async findCleanById(id: string): Promise<User | null> {
+    return this.mongoDbUserService.findCleanById(id);
   }
 }

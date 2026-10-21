@@ -31,13 +31,17 @@ description: Use when the user wants a code review on recent NestJS changes befo
    - Response shapes — are we leaking Mongoose internals (`__v`, password hashes, internal flags)?
    - All enums defined in `src/common/enums/index.ts`?
    - All interfaces defined strictly in the module's `interfaces/<feature>.interface.ts` file?
+   - All Mongoose schemas defined centrally in `src/mongoDb/schema/<entity>.schema.ts`?
+   - All database queries encapsulated in `src/mongoDb/mongo-db-<entity>.service.ts` (never directly in domain services)?
+   - Route-level guards applied per handler method (never at controller class level)?
    - Protected endpoints inject authenticated user as `@CurrentUser() user: JwtPayload` and access `user.userId`?
 
    **Mongoose / MongoDB**
    - Queries that should use `.lean()` for read-only paths?
    - N+1 patterns disguised as loops over `findById`? Use `$in` or aggregation.
    - Indexes present for new query patterns? Flag missing ones.
-   - `populate()` chains — are they needed, are they bounded?
+   - Models injected with `@Inject(MODEL_TOKEN)` using constants in `src/mongoDb/type/constant.ts` (never `@InjectModel(...)` or `MongooseModule.forFeature`)?
+   - `populate()` chains — are they needed, are they bounded? Is `POPULATE_TAB` defined at the bottom of the file?
    - Concurrent writes safe? Flag if optimistic locking or `findOneAndUpdate` with conditions would be safer.
    - Schema changes — any migration needed for existing documents?
 

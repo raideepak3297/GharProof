@@ -46,3 +46,11 @@ export enum DisputeTenantStatus {
   ACCEPTED = 'accepted',
   DISPUTED = 'disputed',
 }
+
+export enum ComparisonDiffStatus {
+  UNCHANGED = 'unchanged',
+  MINOR_WEAR = 'minor_wear',
+  DAMAGED_SINCE_MOVE_IN = 'damaged_since_move_in',
+  MISSING_AT_MOVE_OUT = 'missing_at_move_out',
+  ADDED_DURING_TENANCY = 'added_during_tenancy',
+}

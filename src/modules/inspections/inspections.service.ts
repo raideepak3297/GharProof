@@ -6,7 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import * as crypto from 'crypto';
-import { InspectionStatus, Role } from '../../common/enums';
+import { InspectionStatus, InspectionType, Role } from '../../common/enums';
 import { MongoDbInspectionService } from '../../mongoDb/mongo-db-inspection.service';
 import { MongoDbRentalService } from '../../mongoDb/mongo-db-rental.service';
 import { MongoDbRoomItemService } from '../../mongoDb/mongo-db-room-item.service';
@@ -44,11 +44,44 @@ export class InspectionsService {
       throw new ConflictException(`A ${dto.type} inspection already exists for this rental`);
     }
 
-    return this.mongoDbInspectionService.create({
+    // When creating a move-out inspection, require that move-in inspection is locked
+    let moveInItemsToClone: IRoomItem[] = [];
+    if (dto.type === InspectionType.MOVE_OUT) {
+      const moveIn = await this.mongoDbInspectionService.findByRentalAndType(
+        rentalId,
+        InspectionType.MOVE_IN,
+      );
+      if (!moveIn || moveIn.status !== InspectionStatus.LOCKED) {
+        throw new BadRequestException(
+          'Move-in inspection must be completed and locked before creating a move-out inspection',
+        );
+      }
+      moveInItemsToClone = await this.mongoDbRoomItemService.findByInspectionId(
+        moveIn._id.toString(),
+      );
+    }
+
+    const createdInspection = await this.mongoDbInspectionService.create({
       rentalId,
       type: dto.type,
       notes: dto.notes,
     });
+
+    // Auto-clone checklist items from move-in as move-out inspection templates
+    if (dto.type === InspectionType.MOVE_OUT && moveInItemsToClone.length > 0) {
+      for (const item of moveInItemsToClone) {
+        await this.mongoDbRoomItemService.create({
+          inspectionId: createdInspection._id.toString(),
+          roomName: item.roomName,
+          itemName: item.itemName,
+          condition: item.condition,
+          notes: '',
+          photos: [],
+        });
+      }
+    }
+
+    return createdInspection;
   }
 
   async getInspection(inspectionId: string, user: JwtPayload): Promise<IInspectionDetail> {

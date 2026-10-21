@@ -12,6 +12,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { RentalsModule } from './modules/rentals/rentals.module';
 import { UploadModule } from './modules/upload/upload.module';
 import { InspectionsModule } from './modules/inspections/inspections.module';
+import { ComparisonModule } from './modules/comparison/comparison.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { InspectionsModule } from './modules/inspections/inspections.module';
     RentalsModule,
     UploadModule,
     InspectionsModule,
+    ComparisonModule,
   ],
   controllers: [AppController],
   providers: [AppService],

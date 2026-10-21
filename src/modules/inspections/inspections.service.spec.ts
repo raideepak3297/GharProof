@@ -149,6 +149,98 @@ describe('InspectionsService', () => {
       );
       expect(result).toEqual(createdDoc);
     });
+
+    it('should throw BadRequestException if creating move_out and move_in inspection does not exist', async () => {
+      mockMongoDbRentalService.findById.mockResolvedValue(mockRental);
+      mockMongoDbInspectionService.findByRentalAndType
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(null);
+
+      await expect(
+        service.createInspection(validRentalId, { type: InspectionType.MOVE_OUT }, landlordUser),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should throw BadRequestException if creating move_out and move_in inspection is not locked', async () => {
+      mockMongoDbRentalService.findById.mockResolvedValue(mockRental);
+      mockMongoDbInspectionService.findByRentalAndType
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({
+          _id: validInspectionId,
+          status: InspectionStatus.DRAFT,
+        });
+
+      await expect(
+        service.createInspection(validRentalId, { type: InspectionType.MOVE_OUT }, landlordUser),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should clone items from move_in when creating move_out and move_in is locked', async () => {
+      const moveInId = new Types.ObjectId().toString();
+      const moveOutId = new Types.ObjectId().toString();
+
+      mockMongoDbRentalService.findById.mockResolvedValue(mockRental);
+      mockMongoDbInspectionService.findByRentalAndType
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({
+          _id: moveInId,
+          status: InspectionStatus.LOCKED,
+        });
+
+      const moveInItems = [
+        {
+          _id: new Types.ObjectId().toString(),
+          roomName: 'Living Room',
+          itemName: 'Sofa',
+          condition: ItemCondition.GOOD,
+          notes: 'Initial sofa',
+        },
+        {
+          _id: new Types.ObjectId().toString(),
+          roomName: 'Kitchen',
+          itemName: 'Chimney',
+          condition: ItemCondition.GOOD,
+          notes: 'Working',
+        },
+      ];
+      mockMongoDbRoomItemService.findByInspectionId.mockResolvedValue(moveInItems);
+
+      const createdMoveOut = {
+        _id: moveOutId,
+        rentalId: validRentalId,
+        type: InspectionType.MOVE_OUT,
+        status: InspectionStatus.DRAFT,
+      };
+      mockMongoDbInspectionService.create.mockResolvedValue(createdMoveOut);
+      mockMongoDbRoomItemService.create.mockResolvedValue({});
+
+      const result = await service.createInspection(
+        validRentalId,
+        { type: InspectionType.MOVE_OUT },
+        landlordUser,
+      );
+
+      expect(result).toEqual(createdMoveOut);
+      expect(mockMongoDbRoomItemService.create).toHaveBeenCalledTimes(2);
+      expect(mockMongoDbRoomItemService.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          inspectionId: moveOutId,
+          roomName: 'Living Room',
+          itemName: 'Sofa',
+          condition: ItemCondition.GOOD,
+          photos: [],
+        }),
+      );
+      expect(mockMongoDbRoomItemService.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          inspectionId: moveOutId,
+          roomName: 'Kitchen',
+          itemName: 'Chimney',
+          condition: ItemCondition.GOOD,
+          photos: [],
+        }),
+      );
+    });
   });
 
   describe('addRoomItem', () => {

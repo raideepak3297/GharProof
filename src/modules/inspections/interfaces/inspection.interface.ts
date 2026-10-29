@@ -37,6 +37,10 @@ export interface ICreateInspectionInput {
   notes?: string;
 }
 
+export interface IUpdateInspectionInput {
+  notes?: string;
+}
+
 export interface ICreateRoomItemInput {
   inspectionId: Types.ObjectId | string;
   roomName: string;

@@ -24,7 +24,10 @@ export type UserDocument = User & Document;
 })
 export class User {
   @Prop({ required: true, trim: true })
-  name: string;
+  firstName: string;
+
+  @Prop({ required: false, trim: true, default: '' })
+  lastName?: string;
 
   @Prop({
     required: true,

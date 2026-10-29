@@ -1,4 +1,4 @@
-import { IsEnum, IsOptional, IsString } from 'class-validator';
+import { IsEnum, IsOptional, IsString, IsMongoId } from 'class-validator';
 import { InspectionType } from '../../../common/enums';
 
 export class CreateInspectionDto {
@@ -12,6 +12,7 @@ export class CreateInspectionDto {
   notes?: string;
 
   @IsOptional()
+  @IsMongoId()
   @IsString()
   rentalId?: string;
 }

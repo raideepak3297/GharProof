@@ -14,3 +14,15 @@ export interface AuthResponse {
   accessToken: string;
   user: IUserProfile;
 }
+
+export interface IRegisterUser {
+  id: string;
+  firstName: string;
+  lastName?: string;
+  role: Role;
+}
+
+export interface RegisterResponse {
+  message: string;
+  user: IRegisterUser;
+}

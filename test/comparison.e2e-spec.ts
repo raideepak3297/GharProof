@@ -32,39 +32,52 @@ describe('ComparisonController (e2e)', () => {
     const timestamp = Date.now();
 
     // 1. Register Landlord
-    const landlordRes = await request(app.getHttpServer())
-      .post('/auth/register')
-      .send({
-        name: 'Comparison Landlord',
-        email: `landlord-comp-${timestamp}@example.com`,
-        phone: '+919876543301',
-        password: 'Password123!',
-        role: 'landlord',
-      });
-    landlordToken = landlordRes.body?.data?.accessToken || landlordRes.body?.accessToken;
+    const landlordEmail = `landlord-comp-${timestamp}@example.com`;
+    await request(app.getHttpServer()).post('/auth/register').send({
+      firstName: 'Comparison',
+      lastName: 'Landlord',
+      email: landlordEmail,
+      phone: '+919876543301',
+      password: 'Password123!',
+      role: 'landlord',
+    });
+    const landlordLogin = await request(app.getHttpServer()).post('/auth/login').send({
+      email: landlordEmail,
+      password: 'Password123!',
+    });
+    landlordToken = landlordLogin.body?.data?.accessToken || landlordLogin.body?.accessToken;
 
     // 2. Register Tenant
     const tenantEmail = `tenant-comp-${timestamp}@example.com`;
-    const tenantRes = await request(app.getHttpServer()).post('/auth/register').send({
-      name: 'Comparison Tenant',
+    await request(app.getHttpServer()).post('/auth/register').send({
+      firstName: 'Comparison',
+      lastName: 'Tenant',
       email: tenantEmail,
       phone: '+919876543302',
       password: 'Password123!',
       role: 'tenant',
     });
-    tenantToken = tenantRes.body?.data?.accessToken || tenantRes.body?.accessToken;
+    const tenantLogin = await request(app.getHttpServer()).post('/auth/login').send({
+      email: tenantEmail,
+      password: 'Password123!',
+    });
+    tenantToken = tenantLogin.body?.data?.accessToken || tenantLogin.body?.accessToken;
 
     // 3. Register Outsider Tenant
-    const outsiderRes = await request(app.getHttpServer())
-      .post('/auth/register')
-      .send({
-        name: 'Comparison Outsider',
-        email: `outsider-comp-${timestamp}@example.com`,
-        phone: '+919876543303',
-        password: 'Password123!',
-        role: 'tenant',
-      });
-    outsiderToken = outsiderRes.body?.data?.accessToken || outsiderRes.body?.accessToken;
+    const outsiderEmail = `outsider-comp-${timestamp}@example.com`;
+    await request(app.getHttpServer()).post('/auth/register').send({
+      firstName: 'Comparison',
+      lastName: 'Outsider',
+      email: outsiderEmail,
+      phone: '+919876543303',
+      password: 'Password123!',
+      role: 'tenant',
+    });
+    const outsiderLogin = await request(app.getHttpServer()).post('/auth/login').send({
+      email: outsiderEmail,
+      password: 'Password123!',
+    });
+    outsiderToken = outsiderLogin.body?.data?.accessToken || outsiderLogin.body?.accessToken;
 
     // 4. Create Rental
     const rentalRes = await request(app.getHttpServer())
@@ -114,7 +127,7 @@ describe('ComparisonController (e2e)', () => {
       })
       .expect(201);
     moveOutUploadId = (moveOutPhotoRes.body?.data || moveOutPhotoRes.body)._id;
-  });
+  }, 30000);
 
   afterAll(async () => {
     await app.close();
@@ -260,7 +273,7 @@ describe('ComparisonController (e2e)', () => {
     // Add a new item added during tenancy: Clothes Drying Rack
     await request(app.getHttpServer())
       .post(`/inspections/${moveOutInspectionId}/items`)
-      .set('Authorization', `Bearer ${tenantToken}`)
+      .set('Authorization', `Bearer ${landlordToken}`)
       .send({
         roomName: 'Balcony',
         itemName: 'Clothes Drying Rack',

@@ -32,6 +32,10 @@ export class CreateRentalDto {
   @IsOptional()
   endDate?: string;
 
+  @IsString()
+  @IsOptional()
+  tenantId?: string;
+
   @IsEmail()
   @IsOptional()
   tenantInviteEmail?: string;

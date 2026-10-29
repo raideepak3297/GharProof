@@ -6,7 +6,13 @@ import {
 } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Types } from 'mongoose';
-import { InspectionStatus, InspectionType, ItemCondition, Role } from '../../common/enums';
+import {
+  InspectionStatus,
+  InspectionType,
+  ItemCondition,
+  RentalStatus,
+  Role,
+} from '../../common/enums';
 import { MongoDbInspectionService } from '../../mongoDb/mongo-db-inspection.service';
 import { MongoDbRentalService } from '../../mongoDb/mongo-db-rental.service';
 import { MongoDbRoomItemService } from '../../mongoDb/mongo-db-room-item.service';
@@ -50,6 +56,7 @@ describe('InspectionsService', () => {
     landlordId: validLandlordId,
     tenantId: validTenantId,
     tenantInviteEmail: 'tenant@example.com',
+    status: RentalStatus.ACTIVE,
   };
 
   beforeEach(async () => {
@@ -73,6 +80,7 @@ describe('InspectionsService', () => {
 
     mockMongoDbRentalService = {
       findById: jest.fn(),
+      updateStatus: jest.fn(),
     };
 
     mockMongoDbUploadService = {
@@ -336,7 +344,15 @@ describe('InspectionsService', () => {
 
       mockMongoDbInspectionService.findByIdRaw.mockResolvedValue(mockDoc);
       mockMongoDbRentalService.findById.mockResolvedValue(mockRental);
-      mockMongoDbRoomItemService.findByInspectionId.mockResolvedValue([]);
+      mockMongoDbRoomItemService.findByInspectionId.mockResolvedValue([
+        {
+          _id: new Types.ObjectId(),
+          roomName: 'Living Room',
+          itemName: 'Sofa',
+          condition: ItemCondition.GOOD,
+          photos: [],
+        },
+      ]);
 
       const result = await service.signOff(validInspectionId, { agree: true }, landlordUser);
 
@@ -344,6 +360,25 @@ describe('InspectionsService', () => {
       expect(mockDoc.status).toBe(InspectionStatus.PENDING_SIGNATURES);
       expect(mockDoc.save).toHaveBeenCalled();
       expect(result.status).toBe(InspectionStatus.PENDING_SIGNATURES);
+    });
+
+    it('should throw BadRequestException when signing off with no room items', async () => {
+      const mockDoc = {
+        _id: new Types.ObjectId(validInspectionId),
+        rentalId: validRentalId,
+        type: InspectionType.MOVE_IN,
+        status: InspectionStatus.DRAFT,
+        landlordSigned: false,
+        tenantSigned: false,
+      };
+
+      mockMongoDbInspectionService.findByIdRaw.mockResolvedValue(mockDoc);
+      mockMongoDbRentalService.findById.mockResolvedValue(mockRental);
+      mockMongoDbRoomItemService.findByInspectionId.mockResolvedValue([]);
+
+      await expect(
+        service.signOff(validInspectionId, { agree: true }, landlordUser),
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('should compute rootHash and lock inspection when both parties sign off', async () => {
@@ -388,6 +423,49 @@ describe('InspectionsService', () => {
       expect(mockDoc.rootHash).toHaveLength(64);
       expect(mockDoc.lockedAt).toBeDefined();
       expect(mockDoc.save).toHaveBeenCalled();
+      expect(mockMongoDbRentalService.updateStatus).not.toHaveBeenCalled();
+    });
+
+    it('Dual sign-off on MOVE_OUT inspection locks and transitions rental to COMPLETED', async () => {
+      const mockDoc = {
+        _id: new Types.ObjectId(validInspectionId),
+        rentalId: new Types.ObjectId(validRentalId),
+        type: InspectionType.MOVE_OUT,
+        status: InspectionStatus.PENDING_SIGNATURES,
+        landlordSigned: true,
+        landlordSignedAt: new Date('2026-10-21T10:00:00Z'),
+        tenantSigned: false,
+        rootHash: null,
+        lockedAt: null,
+        save: jest.fn().mockResolvedValue(true),
+        toObject: function () {
+          return this;
+        },
+      };
+
+      mockMongoDbInspectionService.findByIdRaw.mockResolvedValue(mockDoc);
+      mockMongoDbRentalService.findById.mockResolvedValue(mockRental);
+      mockMongoDbRentalService.updateStatus.mockResolvedValue({
+        ...mockRental,
+        status: RentalStatus.COMPLETED,
+      });
+      mockMongoDbRoomItemService.findByInspectionId.mockResolvedValue([
+        {
+          _id: new Types.ObjectId(),
+          roomName: 'Bedroom',
+          itemName: 'Bed Frame',
+          condition: ItemCondition.GOOD,
+          photos: [],
+        },
+      ]);
+
+      await service.signOff(validInspectionId, { agree: true }, tenantUser);
+
+      expect(mockDoc.status).toBe(InspectionStatus.LOCKED);
+      expect(mockMongoDbRentalService.updateStatus).toHaveBeenCalledWith(
+        validRentalId,
+        RentalStatus.COMPLETED,
+      );
     });
   });
 });

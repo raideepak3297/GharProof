@@ -31,39 +31,52 @@ describe('DisputesController (e2e)', () => {
     const timestamp = Date.now();
 
     // 1. Register Landlord
-    const landlordRes = await request(app.getHttpServer())
-      .post('/auth/register')
-      .send({
-        name: 'Dispute Landlord',
-        email: `landlord-disp-${timestamp}@example.com`,
-        phone: '+919876543401',
-        password: 'Password123!',
-        role: 'landlord',
-      });
-    landlordToken = landlordRes.body?.data?.accessToken || landlordRes.body?.accessToken;
+    const landlordEmail = `landlord-disp-${timestamp}@example.com`;
+    await request(app.getHttpServer()).post('/auth/register').send({
+      firstName: 'Dispute',
+      lastName: 'Landlord',
+      email: landlordEmail,
+      phone: '+919876543401',
+      password: 'Password123!',
+      role: 'landlord',
+    });
+    const landlordLogin = await request(app.getHttpServer()).post('/auth/login').send({
+      email: landlordEmail,
+      password: 'Password123!',
+    });
+    landlordToken = landlordLogin.body?.data?.accessToken || landlordLogin.body?.accessToken;
 
     // 2. Register Tenant
     const tenantEmail = `tenant-disp-${timestamp}@example.com`;
-    const tenantRes = await request(app.getHttpServer()).post('/auth/register').send({
-      name: 'Dispute Tenant',
+    await request(app.getHttpServer()).post('/auth/register').send({
+      firstName: 'Dispute',
+      lastName: 'Tenant',
       email: tenantEmail,
       phone: '+919876543402',
       password: 'Password123!',
       role: 'tenant',
     });
-    tenantToken = tenantRes.body?.data?.accessToken || tenantRes.body?.accessToken;
+    const tenantLogin = await request(app.getHttpServer()).post('/auth/login').send({
+      email: tenantEmail,
+      password: 'Password123!',
+    });
+    tenantToken = tenantLogin.body?.data?.accessToken || tenantLogin.body?.accessToken;
 
     // 3. Register Outsider
-    const outsiderRes = await request(app.getHttpServer())
-      .post('/auth/register')
-      .send({
-        name: 'Dispute Outsider',
-        email: `outsider-disp-${timestamp}@example.com`,
-        phone: '+919876543403',
-        password: 'Password123!',
-        role: 'tenant',
-      });
-    outsiderToken = outsiderRes.body?.data?.accessToken || outsiderRes.body?.accessToken;
+    const outsiderEmail = `outsider-disp-${timestamp}@example.com`;
+    await request(app.getHttpServer()).post('/auth/register').send({
+      firstName: 'Dispute',
+      lastName: 'Outsider',
+      email: outsiderEmail,
+      phone: '+919876543403',
+      password: 'Password123!',
+      role: 'tenant',
+    });
+    const outsiderLogin = await request(app.getHttpServer()).post('/auth/login').send({
+      email: outsiderEmail,
+      password: 'Password123!',
+    });
+    outsiderToken = outsiderLogin.body?.data?.accessToken || outsiderLogin.body?.accessToken;
 
     // 4. Create Rental (deposit: 90000)
     const rentalRes = await request(app.getHttpServer())
@@ -102,7 +115,7 @@ describe('DisputesController (e2e)', () => {
       })
       .expect(201);
     evidencePhotoId = (uploadRes.body?.data || uploadRes.body)._id;
-  });
+  }, 30000);
 
   afterAll(async () => {
     await app.close();
@@ -115,8 +128,9 @@ describe('DisputesController (e2e)', () => {
       .expect(200);
 
     const body = res.body?.data || res.body;
-    expect(Array.isArray(body)).toBe(true);
-    expect(body).toHaveLength(0);
+    expect(Array.isArray(body.list)).toBe(true);
+    expect(body.list).toHaveLength(0);
+    expect(body.total).toBe(0);
   });
 
   it('Tenant cannot create deduction dispute (403 Forbidden)', async () => {

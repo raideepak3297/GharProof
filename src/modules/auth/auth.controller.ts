@@ -4,9 +4,12 @@ import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { Public } from '../../common/decorators/public.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { Role } from '../../common/enums';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
 
-import { JwtPayload } from './interfaces/auth.interface';
+import { JwtPayload, RegisterResponse } from './interfaces/auth.interface';
 
 @Controller('auth')
 export class AuthController {
@@ -14,7 +17,7 @@ export class AuthController {
 
   @Public()
   @Post('register')
-  async register(@Body() registerDto: RegisterDto) {
+  async register(@Body() registerDto: RegisterDto): Promise<RegisterResponse> {
     return this.authService.register(registerDto);
   }
 
@@ -25,7 +28,8 @@ export class AuthController {
     return this.authService.login(loginDto);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @Roles(Role.LANDLORD, Role.TENANT)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Get('me')
   async getMe(@CurrentUser() user: JwtPayload) {
     return this.authService.getMe(user.userId);

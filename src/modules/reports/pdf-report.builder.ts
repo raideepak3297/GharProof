@@ -26,8 +26,8 @@ export class PdfReportBuilder {
       const secondaryColor = '#0369A1'; // Ocean Blue
       const darkText = '#1F2937'; // Slate Charcoal
       const mutedText = '#6B7280'; // Medium Gray
-      const lightBg = '#F3F4F6'; // Card background
-      const borderColor = '#E5E7EB'; // Border
+      const lightBg = '#F8FAFC'; // Card background
+      const borderColor = '#E2E8F0'; // Border
 
       const ensureSpace = (neededHeight: number) => {
         if (doc.y + neededHeight > 770) {
@@ -71,17 +71,19 @@ export class PdfReportBuilder {
       });
 
       doc.y = 120;
+      let sectionIdx = 1;
 
       // -------------------------------------------------------------
       // 2. RENTAL PROPERTY & TENANCY PARTICULARS
       // -------------------------------------------------------------
-      doc.font('Helvetica-Bold').fontSize(12).fillColor(primaryColor);
-      doc.text('1. TENANCY PARTICULARS', leftMargin, doc.y);
+      doc.font('Helvetica-Bold').fontSize(11).fillColor(primaryColor);
+      doc.text(`${sectionIdx++}. TENANCY PARTICULARS`, leftMargin, doc.y);
       doc.y += 6;
 
       const rentalBoxY = doc.y;
+      const rentalBoxHeight = 100;
       doc
-        .roundedRect(leftMargin, rentalBoxY, printableWidth, 90, 4)
+        .roundedRect(leftMargin, rentalBoxY, printableWidth, rentalBoxHeight, 4)
         .fillAndStroke(lightBg, borderColor);
 
       const landlord = data.rental.landlordId as any;
@@ -89,64 +91,108 @@ export class PdfReportBuilder {
       const addr = data.rental.propertyAddress;
       const formattedAddr = `${addr.line1}${addr.line2 ? ', ' + addr.line2 : ''}, ${addr.city}, ${addr.state} - ${addr.postalCode}`;
 
+      // Row 1: Full-width Property Address (prevents text overlap)
+      let lineY = rentalBoxY + 10;
+      doc.font('Helvetica-Bold').fontSize(8.5).fillColor(darkText);
+      doc.text('Property Address: ', leftMargin + 12, lineY);
+      doc.font('Helvetica').fillColor(darkText);
+      doc.text(formattedAddr, leftMargin + 95, lineY, {
+        width: printableWidth - 110,
+        ellipsis: true,
+      });
+
+      // Subtle horizontal divider
+      lineY += 16;
+      doc.rect(leftMargin + 12, lineY, printableWidth - 24, 0.5).fill(borderColor);
+      lineY += 8;
+
       const col1X = leftMargin + 12;
       const col2X = leftMargin + 265;
-      let lineY = rentalBoxY + 10;
+      const colWidth = 230;
 
-      // Column 1: Property & Term
+      const landlordName =
+        [landlord?.firstName, landlord?.lastName].filter(Boolean).join(' ') ||
+        landlord?.name ||
+        'Landlord';
+      const tenantName =
+        [tenant?.firstName, tenant?.lastName].filter(Boolean).join(' ') || tenant?.name || 'Tenant';
+
+      // Left Column: Landlord, Tenant, Term
+      let leftY = lineY;
       doc.font('Helvetica-Bold').fontSize(8.5).fillColor(darkText);
-      doc.text('Property Address: ', col1X, lineY, { continued: true });
-      doc.font('Helvetica').text(formattedAddr);
+      doc.text('Landlord: ', col1X, leftY);
+      doc
+        .font('Helvetica')
+        .text(`${landlordName} (${landlord?.email || 'N/A'})`, col1X + 50, leftY, {
+          width: colWidth - 50,
+          ellipsis: true,
+        });
 
-      lineY += 16;
-      doc.font('Helvetica-Bold').text('Lease Term: ', col1X, lineY, { continued: true });
+      leftY += 16;
+      doc.font('Helvetica-Bold').text('Tenant: ', col1X, leftY);
+      doc
+        .font('Helvetica')
+        .text(
+          `${tenantName} (${tenant?.email || data.rental.tenantInviteEmail || 'N/A'})`,
+          col1X + 50,
+          leftY,
+          {
+            width: colWidth - 50,
+            ellipsis: true,
+          },
+        );
+
+      leftY += 16;
       const startDate = new Date(data.rental.startDate).toLocaleDateString('en-IN');
       const endDate = data.rental.endDate
         ? new Date(data.rental.endDate).toLocaleDateString('en-IN')
         : 'Ongoing';
-      doc.font('Helvetica').text(`${startDate} — ${endDate}`);
+      doc.font('Helvetica-Bold').text('Lease Term: ', col1X, leftY);
+      doc.font('Helvetica').text(`${startDate} — ${endDate}`, col1X + 55, leftY, {
+        width: colWidth - 55,
+        ellipsis: true,
+      });
 
-      lineY += 16;
-      doc.font('Helvetica-Bold').text('Monthly Rent: ', col1X, lineY, { continued: true });
-      doc.font('Helvetica').text(`INR ${data.rental.monthlyRent.toLocaleString('en-IN')}`);
+      // Right Column: Rent, Deposit, Status
+      let rightY = lineY;
+      doc.font('Helvetica-Bold').fontSize(8.5).fillColor(darkText);
+      doc.text('Monthly Rent: ', col2X, rightY);
+      doc
+        .font('Helvetica')
+        .text(`INR ${data.rental.monthlyRent.toLocaleString('en-IN')}`, col2X + 70, rightY, {
+          width: colWidth - 70,
+          ellipsis: true,
+        });
 
-      lineY += 16;
-      doc.font('Helvetica-Bold').text('Security Deposit: ', col1X, lineY, { continued: true });
+      rightY += 16;
+      doc.font('Helvetica-Bold').text('Security Deposit: ', col2X, rightY);
       doc
         .font('Helvetica-Bold')
         .fillColor(secondaryColor)
-        .text(`INR ${data.rental.depositAmount.toLocaleString('en-IN')}`);
+        .text(`INR ${data.rental.depositAmount.toLocaleString('en-IN')}`, col2X + 80, rightY, {
+          width: colWidth - 80,
+          ellipsis: true,
+        });
 
-      // Column 2: Parties
-      let col2Y = rentalBoxY + 10;
-      doc.font('Helvetica-Bold').fontSize(8.5).fillColor(darkText);
-      doc.text('Landlord: ', col2X, col2Y, { continued: true });
-      doc.font('Helvetica').text(`${landlord?.name || 'N/A'} (${landlord?.email || 'N/A'})`);
+      rightY += 16;
+      doc.font('Helvetica-Bold').fillColor(darkText).text('Rental Status: ', col2X, rightY);
+      doc.font('Helvetica').text(data.rental.status.toUpperCase(), col2X + 65, rightY, {
+        width: colWidth - 65,
+        ellipsis: true,
+      });
 
-      col2Y += 16;
-      doc.font('Helvetica-Bold').text('Tenant: ', col2X, col2Y, { continued: true });
-      doc
-        .font('Helvetica')
-        .text(
-          `${tenant?.name || 'N/A'} (${tenant?.email || data.rental.tenantInviteEmail || 'N/A'})`,
-        );
-
-      col2Y += 16;
-      doc.font('Helvetica-Bold').text('Rental Status: ', col2X, col2Y, { continued: true });
-      doc.font('Helvetica').text(data.rental.status.toUpperCase());
-
-      doc.y = rentalBoxY + 102;
+      doc.y = rentalBoxY + rentalBoxHeight + 14;
 
       // -------------------------------------------------------------
       // 3. CRYPTOGRAPHIC VERIFICATION CERTIFICATE
       // -------------------------------------------------------------
-      doc.font('Helvetica-Bold').fontSize(12).fillColor(primaryColor);
-      doc.text('2. CRYPTOGRAPHIC INTEGRITY CERTIFICATE', leftMargin, doc.y);
+      doc.font('Helvetica-Bold').fontSize(11).fillColor(primaryColor);
+      doc.text(`${sectionIdx++}. CRYPTOGRAPHIC INTEGRITY CERTIFICATE`, leftMargin, doc.y);
       doc.y += 6;
 
       const certBoxY = doc.y;
       doc
-        .roundedRect(leftMargin, certBoxY, printableWidth, 100, 4)
+        .roundedRect(leftMargin, certBoxY, printableWidth, 90, 4)
         .fillAndStroke('#F8FAFC', borderColor);
 
       const moveInLocked = data.moveInInspection?.status === InspectionStatus.LOCKED;
@@ -155,57 +201,57 @@ export class PdfReportBuilder {
       let certY = certBoxY + 10;
 
       // Move-In Certificate Block
-      doc.font('Helvetica-Bold').fontSize(9).fillColor(darkText);
+      doc.font('Helvetica-Bold').fontSize(8.5).fillColor(darkText);
       doc.text(
-        `Move-In Inspection Fingerprint [${moveInLocked ? 'VERIFIED & LOCKED' : 'PENDING'}]`,
+        `Move-In Baseline Hash [${moveInLocked ? 'VERIFIED' : 'PENDING'}]`,
         leftMargin + 12,
         certY,
       );
-      certY += 14;
+      certY += 13;
       doc.font('Courier').fontSize(7.5).fillColor(primaryColor);
       doc.text(
         data.moveInInspection?.rootHash
           ? `SHA-256: ${data.moveInInspection.rootHash}`
-          : 'SHA-256: Hash pending dual sign-off',
+          : 'SHA-256: Pending dual sign-off',
         leftMargin + 12,
         certY,
       );
 
       certY += 18;
       // Move-Out Certificate Block
-      doc.font('Helvetica-Bold').fontSize(9).fillColor(darkText);
+      doc.font('Helvetica-Bold').fontSize(8.5).fillColor(darkText);
       doc.text(
-        `Move-Out Inspection Fingerprint [${moveOutLocked ? 'VERIFIED & LOCKED' : 'PENDING'}]`,
+        `Move-Out Exit Hash [${moveOutLocked ? 'VERIFIED' : 'PENDING'}]`,
         leftMargin + 12,
         certY,
       );
-      certY += 14;
+      certY += 13;
       doc.font('Courier').fontSize(7.5).fillColor(primaryColor);
       doc.text(
         data.moveOutInspection?.rootHash
           ? `SHA-256: ${data.moveOutInspection.rootHash}`
-          : 'SHA-256: Hash pending dual sign-off',
+          : 'SHA-256: Pending dual sign-off',
         leftMargin + 12,
         certY,
       );
 
       certY += 16;
-      doc.font('Helvetica-Oblique').fontSize(7.5).fillColor(mutedText);
+      doc.font('Helvetica').fontSize(7).fillColor(mutedText);
       doc.text(
-        'Integrity Note: Composite SHA-256 root hashes guarantee mathematical immutability over conditions, photos, and signatures.',
+        'Root hash seals all room items, photos, and signatures mathematically.',
         leftMargin + 12,
         certY,
       );
 
-      doc.y = certBoxY + 115;
+      doc.y = certBoxY + 104;
 
       // -------------------------------------------------------------
       // 4. ROOM CONDITION COMPARISON TABLE
       // -------------------------------------------------------------
       ensureSpace(120);
 
-      doc.font('Helvetica-Bold').fontSize(12).fillColor(primaryColor);
-      doc.text('3. ROOM-BY-ROOM CONDITION COMPARISON', leftMargin, doc.y);
+      doc.font('Helvetica-Bold').fontSize(11).fillColor(primaryColor);
+      doc.text(`${sectionIdx++}. ROOM-BY-ROOM CONDITION COMPARISON`, leftMargin, doc.y);
       doc.y += 6;
 
       // Table Header
@@ -292,7 +338,7 @@ export class PdfReportBuilder {
       doc.y += 14;
 
       // -------------------------------------------------------------
-      // 5. PHOTO EXHIBIT & SHA-256 CHECKSUMS
+      // 5. PHOTO EXHIBIT & SHA-256 CHECKSUMS (only if photos exist)
       // -------------------------------------------------------------
       const itemsWithPhotos = comparisons.filter(
         (c) =>
@@ -302,8 +348,8 @@ export class PdfReportBuilder {
 
       if (itemsWithPhotos.length > 0) {
         ensureSpace(80);
-        doc.font('Helvetica-Bold').fontSize(12).fillColor(primaryColor);
-        doc.text('4. PHOTO EXHIBITS & CRYPTOGRAPHIC HASHES', leftMargin, doc.y);
+        doc.font('Helvetica-Bold').fontSize(11).fillColor(primaryColor);
+        doc.text(`${sectionIdx++}. PHOTO EXHIBITS & CRYPTOGRAPHIC HASHES`, leftMargin, doc.y);
         doc.y += 6;
 
         itemsWithPhotos.forEach((item) => {
@@ -343,8 +389,8 @@ export class PdfReportBuilder {
       // -------------------------------------------------------------
       ensureSpace(160);
 
-      doc.font('Helvetica-Bold').fontSize(12).fillColor(primaryColor);
-      doc.text('5. FINAL DEPOSIT RECONCILIATION STATEMENT', leftMargin, doc.y);
+      doc.font('Helvetica-Bold').fontSize(11).fillColor(primaryColor);
+      doc.text(`${sectionIdx++}. FINAL DEPOSIT RECONCILIATION STATEMENT`, leftMargin, doc.y);
       doc.y += 6;
 
       const settlement = data.settlement.settlement;
@@ -426,12 +472,19 @@ export class PdfReportBuilder {
       const sigCol1 = leftMargin + 16;
       const sigCol2 = leftMargin + 270;
 
-      doc.font('Helvetica-Bold').fontSize(8).fillColor(darkText);
+      const landlordSigName =
+        [landlord?.firstName, landlord?.lastName].filter(Boolean).join(' ') ||
+        landlord?.name ||
+        'Landlord';
+      const tenantSigName =
+        [tenant?.firstName, tenant?.lastName].filter(Boolean).join(' ') || tenant?.name || 'Tenant';
+
+      doc.font('Helvetica-Bold').fontSize(8.5).fillColor(darkText);
       doc.text('LANDLORD SIGN-OFF', sigCol1, sigBoxY + 8);
-      doc.font('Helvetica').fontSize(7.5).fillColor(mutedText);
-      doc.text(`Name: ${landlord?.name || 'Landlord'}`, sigCol1, sigBoxY + 20);
+      doc.font('Helvetica').fontSize(8).fillColor(mutedText);
+      doc.text(`Name: ${landlordSigName}`, sigCol1, sigBoxY + 20);
       doc.text(
-        `Signed: ${data.moveOutInspection?.landlordSigned ? 'Digital SHA-256 Acknowledged' : 'Pending'}`,
+        `Status: ${data.moveOutInspection?.landlordSigned ? 'Signed & Verified' : 'Pending'}`,
         sigCol1,
         sigBoxY + 30,
       );
@@ -441,12 +494,12 @@ export class PdfReportBuilder {
         sigBoxY + 40,
       );
 
-      doc.font('Helvetica-Bold').fontSize(8).fillColor(darkText);
+      doc.font('Helvetica-Bold').fontSize(8.5).fillColor(darkText);
       doc.text('TENANT SIGN-OFF', sigCol2, sigBoxY + 8);
-      doc.font('Helvetica').fontSize(7.5).fillColor(mutedText);
-      doc.text(`Name: ${tenant?.name || 'Tenant'}`, sigCol2, sigBoxY + 20);
+      doc.font('Helvetica').fontSize(8).fillColor(mutedText);
+      doc.text(`Name: ${tenantSigName}`, sigCol2, sigBoxY + 20);
       doc.text(
-        `Signed: ${data.moveOutInspection?.tenantSigned ? 'Digital SHA-256 Acknowledged' : 'Pending'}`,
+        `Status: ${data.moveOutInspection?.tenantSigned ? 'Signed & Verified' : 'Pending'}`,
         sigCol2,
         sigBoxY + 30,
       );

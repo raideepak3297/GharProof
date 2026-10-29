@@ -17,11 +17,13 @@ import { MongoDbUploadService } from '../../mongoDb/mongo-db-upload.service';
 import { JwtPayload } from '../auth/interfaces/auth.interface';
 import { IRental } from '../rentals/interfaces/rental.interface';
 import { CreateDisputeDto } from './dto/create-dispute.dto';
+import { ListDisputesDto } from './dto/list-disputes.dto';
 import { RespondDisputeDto } from './dto/respond-dispute.dto';
 import {
   IDispute,
   IDisputeSettlementResponse,
   IDisputeSettlementSummary,
+  IPaginatedDisputesResponse,
 } from './interfaces/dispute.interface';
 
 @Injectable()
@@ -67,10 +69,16 @@ export class DisputesService {
     });
   }
 
-  async getDisputesByRental(rentalId: string, user: JwtPayload): Promise<IDispute[]> {
+  async getDisputesByRental(
+    rentalId: string,
+    user: JwtPayload,
+    query?: ListDisputesDto,
+  ): Promise<IPaginatedDisputesResponse> {
     const rental = await this.getRentalOrThrow(rentalId);
     assertRentalAccess(rental, user, 'disputes for this rental');
-    return this.mongoDbDisputeService.findByRentalId(rentalId);
+    const page = query?.page ?? 1;
+    const limit = query?.limit ?? 20;
+    return this.mongoDbDisputeService.findByRentalIdPaginated(rentalId, page, limit);
   }
 
   async getDisputeById(rentalId: string, disputeId: string, user: JwtPayload): Promise<IDispute> {

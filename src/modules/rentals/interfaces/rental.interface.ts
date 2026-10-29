@@ -49,3 +49,12 @@ export interface IRentalDetailResponse extends IRental {
   moveInInspection?: Record<string, unknown> | null;
   moveOutInspection?: Record<string, unknown> | null;
 }
+
+export interface IPaginatedRentalsResponse {
+  list: IRental[];
+  page: number;
+  limit: number;
+  total: number;
+  size: number;
+  hasMore: boolean;
+}

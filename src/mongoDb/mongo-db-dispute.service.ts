@@ -1,6 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { Model, Types } from 'mongoose';
-import { ICreateDisputeInput, IDispute } from '../modules/disputes/interfaces/dispute.interface';
+import {
+  ICreateDisputeInput,
+  IDispute,
+  IPaginatedDisputesResponse,
+} from '../modules/disputes/interfaces/dispute.interface';
 import { DisputeDocument } from './schema/dispute.schema';
 import { DISPUTE_MODEL } from './type/constant';
 
@@ -50,6 +54,48 @@ export class MongoDbDisputeService {
       .populate(POPULATE_TAB)
       .lean<IDispute[]>()
       .exec();
+  }
+
+  async findByRentalIdPaginated(
+    rentalId: string,
+    page: number = 1,
+    limit: number = 20,
+  ): Promise<IPaginatedDisputesResponse> {
+    if (!Types.ObjectId.isValid(rentalId)) {
+      return {
+        list: [],
+        page,
+        limit,
+        total: 0,
+        size: 0,
+        hasMore: false,
+      };
+    }
+    const filter = { rentalId: new Types.ObjectId(rentalId) };
+    const skip = (page - 1) * limit;
+
+    const [list, total] = await Promise.all([
+      this.disputeModel
+        .find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .populate(POPULATE_TAB)
+        .lean<IDispute[]>()
+        .exec(),
+      this.disputeModel.countDocuments(filter).exec(),
+    ]);
+
+    const hasMore = page * limit < total;
+
+    return {
+      list,
+      page,
+      limit,
+      total,
+      size: list.length,
+      hasMore,
+    };
   }
 
   async update(id: string, updateData: Partial<IDispute>): Promise<IDispute | null> {

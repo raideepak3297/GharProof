@@ -51,3 +51,12 @@ export interface IDisputeSettlementResponse {
   settlement: IDisputeSettlementSummary;
   disputes: IDispute[];
 }
+
+export interface IPaginatedDisputesResponse {
+  list: IDispute[];
+  page: number;
+  limit: number;
+  total: number;
+  size: number;
+  hasMore: boolean;
+}

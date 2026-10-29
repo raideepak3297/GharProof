@@ -41,7 +41,8 @@ describe('AuthService', () => {
 
   describe('register', () => {
     const registerDto = {
-      name: 'Rohan Sharma',
+      firstName: 'Rohan',
+      lastName: 'Sharma',
       email: 'rohan@example.com',
       phone: '+919999999999',
       password: 'StrongPassword123!',
@@ -60,14 +61,19 @@ describe('AuthService', () => {
 
       expect(mockUsersService.findByEmail).toHaveBeenCalledWith(registerDto.email);
       expect(bcrypt.hash).toHaveBeenCalledWith(registerDto.password, 10);
-      expect(mockJwtService.sign).toHaveBeenCalledWith({
-        sub: 'userObjId123',
-        userId: 'userObjId123',
-        email: registerDto.email,
-        role: registerDto.role,
+      expect(result).toEqual({
+        message: 'User registered successfully',
+        user: {
+          id: 'userObjId123',
+          firstName: 'Rohan',
+          lastName: 'Sharma',
+          role: Role.TENANT,
+        },
       });
-      expect(result).toHaveProperty('accessToken', 'mockJwtToken');
-      expect(result.user).toHaveProperty('id', 'userObjId123');
+      expect(result).not.toHaveProperty('accessToken');
+      expect((result as any).user).not.toHaveProperty('email');
+      expect((result as any).user).not.toHaveProperty('phone');
+      expect(mockJwtService.sign).not.toHaveBeenCalled();
     });
 
     it('should throw ConflictException if email is already taken', async () => {
@@ -88,7 +94,8 @@ describe('AuthService', () => {
         _id: 'userObjId123',
         email: loginDto.email,
         passwordHash: 'hashedSecret',
-        name: 'Rohan',
+        firstName: 'Rohan',
+        lastName: 'Sharma',
         phone: '1234567890',
         role: Role.TENANT,
       });

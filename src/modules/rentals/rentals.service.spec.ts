@@ -3,6 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { Types } from 'mongoose';
 import { RentalStatus, Role } from '../../common/enums';
 import { MongoDbRentalService } from '../../mongoDb/mongo-db-rental.service';
+import { MongoDbUserService } from '../../mongoDb/mongo-db-user.service';
 import { JwtPayload } from '../auth/interfaces/auth.interface';
 import { RentalsService } from './rentals.service';
 
@@ -47,12 +48,21 @@ describe('RentalsService', () => {
       findByIdRaw: jest.fn(),
     };
 
+    const mockMongoDbUserService = {
+      findById: jest.fn(),
+      findByEmail: jest.fn(),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         RentalsService,
         {
           provide: MongoDbRentalService,
           useValue: mockMongoDbRentalService,
+        },
+        {
+          provide: MongoDbUserService,
+          useValue: mockMongoDbUserService,
         },
       ],
     }).compile();
@@ -118,16 +128,27 @@ describe('RentalsService', () => {
         role: Role.LANDLORD,
       };
 
-      mockMongoDbRentalService.findUserRentals.mockResolvedValue([mockRentalDoc]);
+      const paginatedResult = {
+        list: [mockRentalDoc],
+        page: 1,
+        limit: 20,
+        total: 1,
+        size: 1,
+        hasMore: false,
+      };
+      mockMongoDbRentalService.findUserRentals.mockResolvedValue(paginatedResult);
 
       const result = await service.findAllForUser(user);
 
       expect(mockMongoDbRentalService.findUserRentals).toHaveBeenCalledWith(
         validLandlordId,
         'landlord@example.com',
+        1,
+        20,
       );
-      expect(result).toHaveLength(1);
-      expect(result[0]._id.toString()).toBe(validRentalId);
+      expect(result.list).toHaveLength(1);
+      expect(result.total).toBe(1);
+      expect(result.hasMore).toBe(false);
     });
   });
 

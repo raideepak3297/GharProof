@@ -6,6 +6,7 @@ import {
   HttpStatus,
   Param,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -15,6 +16,8 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { JwtPayload } from '../auth/interfaces/auth.interface';
 import { CreateRentalDto } from './dto/create-rental.dto';
+import { ListRentalsDto } from './dto/list-rentals.dto';
+import { IPaginatedRentalsResponse } from './interfaces/rental.interface';
 import { RentalsService } from './rentals.service';
 
 @Controller('rentals')
@@ -29,13 +32,18 @@ export class RentalsController {
   }
 
   @Get()
-  @UseGuards(JwtAuthGuard)
-  async findAll(@CurrentUser() user: JwtPayload) {
-    return this.rentalsService.findAllForUser(user);
+  @Roles(Role.LANDLORD, Role.TENANT)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  async findAll(
+    @CurrentUser() user: JwtPayload,
+    @Query() query: ListRentalsDto,
+  ): Promise<IPaginatedRentalsResponse> {
+    return this.rentalsService.findAllForUser(user, query);
   }
 
   @Get(':id')
-  @UseGuards(JwtAuthGuard)
+  @Roles(Role.LANDLORD, Role.TENANT)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   async findOne(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
     return this.rentalsService.findByIdWithAuth(id, user);
   }

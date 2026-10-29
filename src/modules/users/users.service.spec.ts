@@ -35,7 +35,8 @@ describe('UsersService', () => {
   describe('create', () => {
     it('should create and return a new user', async () => {
       const dto = {
-        name: 'Test Landlord',
+        firstName: 'Test',
+        lastName: 'Landlord',
         email: 'landlord@example.com',
         phone: '+919876543210',
         passwordHash: 'hashedSecret',
@@ -62,6 +63,26 @@ describe('UsersService', () => {
       const result = await service.findByEmail('TEST@example.com');
       expect(mockMongoDbUserService.findByEmail).toHaveBeenCalledWith('TEST@example.com');
       expect(result).toEqual(user);
+    });
+  });
+
+  describe('findTenants', () => {
+    it('should query tenants from MongoDbUserService', async () => {
+      mockMongoDbUserService.findTenants = jest.fn().mockResolvedValue([
+        {
+          _id: 'tenant1',
+          firstName: 'Deepak',
+          lastName: 'Rai',
+          email: 'deepak@example.com',
+          phone: '+919876543210',
+          role: Role.TENANT,
+        },
+      ]);
+
+      const result = await service.findTenants('deepak');
+      expect(mockMongoDbUserService.findTenants).toHaveBeenCalledWith('deepak');
+      expect(result).toHaveLength(1);
+      expect(result[0].email).toBe('deepak@example.com');
     });
   });
 });

@@ -5,7 +5,8 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { InspectionStatus, InspectionType } from '../../common/enums';
+import { Types } from 'mongoose';
+import { InspectionStatus, InspectionType, RentalStatus, Role } from '../../common/enums';
 import { computeSha256 } from '../../common/utils/crypto-hash.util';
 import {
   assertRentalAccess,
@@ -21,6 +22,7 @@ import { JwtPayload } from '../auth/interfaces/auth.interface';
 import { CreateInspectionDto } from './dto/create-inspection.dto';
 import { CreateRoomItemDto } from './dto/create-room-item.dto';
 import { SignOffInspectionDto } from './dto/sign-off-inspection.dto';
+import { UpdateInspectionDto } from './dto/update-inspection.dto';
 import { UpdateRoomItemDto } from './dto/update-room-item.dto';
 import { IInspection, IInspectionDetail, IRoomItem } from './interfaces/inspection.interface';
 
@@ -38,12 +40,22 @@ export class InspectionsService {
     dto: CreateInspectionDto,
     user: JwtPayload,
   ): Promise<IInspection> {
+    if (user.role !== Role.LANDLORD) {
+      throw new ForbiddenException('Only landlords can create inspections');
+    }
+
     const rental = await this.mongoDbRentalService.findById(rentalId);
     if (!rental) {
       throw new NotFoundException(`Rental with ID ${rentalId} not found`);
     }
 
     assertRentalAccess(rental, user, 'inspections for this rental');
+
+    if (rental.status !== RentalStatus.ACTIVE && rental.status !== RentalStatus.COMPLETED) {
+      throw new BadRequestException(
+        'Cannot record inspections until the tenant has accepted the rental agreement',
+      );
+    }
 
     const existing = await this.mongoDbInspectionService.findByRentalAndType(rentalId, dto.type);
     if (existing) {
@@ -89,6 +101,21 @@ export class InspectionsService {
     return createdInspection;
   }
 
+  async getInspectionsByRental(rentalId: string, user: JwtPayload): Promise<IInspection[]> {
+    if (!Types.ObjectId.isValid(rentalId)) {
+      throw new BadRequestException('Invalid rental ID format');
+    }
+
+    const rental = await this.mongoDbRentalService.findById(rentalId);
+    if (!rental) {
+      throw new NotFoundException('Rental not found');
+    }
+
+    assertRentalAccess(rental, user, 'inspections for this rental');
+
+    return this.mongoDbInspectionService.findByRental(rentalId);
+  }
+
   async getInspection(inspectionId: string, user: JwtPayload): Promise<IInspectionDetail> {
     const inspection = await this.mongoDbInspectionService.findById(inspectionId);
     if (!inspection) {
@@ -108,6 +135,23 @@ export class InspectionsService {
       ...inspection,
       items,
     };
+  }
+
+  async updateInspection(
+    inspectionId: string,
+    dto: UpdateInspectionDto,
+    user: JwtPayload,
+  ): Promise<IInspection> {
+    await this.getEditableInspectionWithAccess(inspectionId, user);
+
+    const updated = await this.mongoDbInspectionService.update(inspectionId, {
+      notes: dto.notes,
+    });
+    if (!updated) {
+      throw new NotFoundException(`Inspection with ID ${inspectionId} not found`);
+    }
+
+    return updated;
   }
 
   async addRoomItem(
@@ -154,6 +198,10 @@ export class InspectionsService {
     inspectionId: string,
     user: JwtPayload,
   ): Promise<IInspection> {
+    if (user.role !== Role.LANDLORD) {
+      throw new ForbiddenException('Only landlords can add or modify inspection room items');
+    }
+
     const inspection = await this.mongoDbInspectionService.findById(inspectionId);
     if (!inspection) {
       throw new NotFoundException(`Inspection with ID ${inspectionId} not found`);
@@ -168,6 +216,11 @@ export class InspectionsService {
       const rental = await this.mongoDbRentalService.findById(rentalId);
       if (rental) {
         assertRentalAccess(rental, user, 'inspections for this rental');
+        if (rental.status !== RentalStatus.ACTIVE && rental.status !== RentalStatus.COMPLETED) {
+          throw new BadRequestException(
+            'Cannot add checklist items until the tenant has accepted the rental agreement',
+          );
+        }
       }
     }
 
@@ -209,6 +262,11 @@ export class InspectionsService {
 
     if (!isLandlord && !isTenant) {
       throw new ForbiddenException('You are not authorized to sign off on this inspection');
+    }
+
+    const existingItems = await this.mongoDbRoomItemService.findByInspectionId(inspectionId);
+    if (existingItems.length === 0) {
+      throw new BadRequestException('Cannot sign off on an inspection with no checklist items');
     }
 
     if (!dto.agree) {
@@ -271,6 +329,14 @@ export class InspectionsService {
       inspectionDoc.rootHash = rootHash;
       inspectionDoc.status = InspectionStatus.LOCKED;
       inspectionDoc.lockedAt = now;
+
+      // When move_out checkout inspection is dual-signed and locked, the physical tenancy concludes
+      if (inspectionDoc.type === InspectionType.MOVE_OUT) {
+        const rentalIdStr = extractEntityId(inspectionDoc.rentalId);
+        if (rentalIdStr) {
+          await this.mongoDbRentalService.updateStatus(rentalIdStr, RentalStatus.COMPLETED);
+        }
+      }
     } else {
       inspectionDoc.status = InspectionStatus.PENDING_SIGNATURES;
     }

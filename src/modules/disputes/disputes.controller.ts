@@ -1,17 +1,26 @@
-import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { Role } from '../../common/enums';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
 import { JwtPayload } from '../auth/interfaces/auth.interface';
 import { DisputesService } from './disputes.service';
 import { CreateDisputeDto } from './dto/create-dispute.dto';
+import { ListDisputesDto } from './dto/list-disputes.dto';
 import { RespondDisputeDto } from './dto/respond-dispute.dto';
-import { IDispute, IDisputeSettlementResponse } from './interfaces/dispute.interface';
+import {
+  IDispute,
+  IDisputeSettlementResponse,
+  IPaginatedDisputesResponse,
+} from './interfaces/dispute.interface';
 
 @Controller('rentals/:rentalId/disputes')
 export class DisputesController {
   constructor(private readonly disputesService: DisputesService) {}
 
-  @UseGuards(JwtAuthGuard)
+  @Roles(Role.LANDLORD)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Post()
   async createDispute(
     @Param('rentalId') rentalId: string,
@@ -21,16 +30,19 @@ export class DisputesController {
     return this.disputesService.createDispute(rentalId, dto, user);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @Roles(Role.LANDLORD, Role.TENANT)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Get()
   async getDisputes(
     @Param('rentalId') rentalId: string,
     @CurrentUser() user: JwtPayload,
-  ): Promise<IDispute[]> {
-    return this.disputesService.getDisputesByRental(rentalId, user);
+    @Query() query: ListDisputesDto,
+  ): Promise<IPaginatedDisputesResponse> {
+    return this.disputesService.getDisputesByRental(rentalId, user, query);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @Roles(Role.LANDLORD, Role.TENANT)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Get('settlement')
   async getSettlement(
     @Param('rentalId') rentalId: string,
@@ -39,7 +51,8 @@ export class DisputesController {
     return this.disputesService.getSettlementSummary(rentalId, user);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @Roles(Role.LANDLORD, Role.TENANT)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Get(':disputeId')
   async getDisputeById(
     @Param('rentalId') rentalId: string,
@@ -49,7 +62,8 @@ export class DisputesController {
     return this.disputesService.getDisputeById(rentalId, disputeId, user);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @Roles(Role.TENANT)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Patch(':disputeId')
   async respondToDispute(
     @Param('rentalId') rentalId: string,

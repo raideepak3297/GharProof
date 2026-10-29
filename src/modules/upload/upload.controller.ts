@@ -12,7 +12,10 @@ import {
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { Response } from 'express';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { Role } from '../../common/enums';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
 import { JwtPayload } from '../auth/interfaces/auth.interface';
 import { IUpload } from './interfaces/upload.interface';
 import { UploadService } from './upload.service';
@@ -21,7 +24,8 @@ import { UploadService } from './upload.service';
 export class UploadController {
   constructor(private readonly uploadService: UploadService) {}
 
-  @UseGuards(JwtAuthGuard)
+  @Roles(Role.LANDLORD, Role.TENANT)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Post()
   @UseInterceptors(FileInterceptor('file'))
   async uploadFile(
@@ -31,7 +35,8 @@ export class UploadController {
     return this.uploadService.processSingleUpload(file, user.userId);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @Roles(Role.LANDLORD, Role.TENANT)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Post('batch')
   @UseInterceptors(FilesInterceptor('files', 10))
   async uploadBatch(
@@ -41,7 +46,8 @@ export class UploadController {
     return this.uploadService.processMultipleUploads(files, user.userId);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @Roles(Role.LANDLORD, Role.TENANT)
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Get(':id')
   async getUploadMetadata(@Param('id') id: string): Promise<IUpload> {
     return this.uploadService.getUploadById(id);

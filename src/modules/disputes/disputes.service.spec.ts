@@ -59,6 +59,7 @@ describe('DisputesService', () => {
       create: jest.fn(),
       findById: jest.fn(),
       findByRentalId: jest.fn(),
+      findByRentalIdPaginated: jest.fn(),
       update: jest.fn(),
       delete: jest.fn(),
     };

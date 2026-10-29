@@ -28,25 +28,35 @@ describe('InspectionsController (e2e)', () => {
 
     // 1. Register Landlord
     const landlordEmail = `landlord-insp-${Date.now()}@example.com`;
-    const landlordRes = await request(app.getHttpServer()).post('/auth/register').send({
-      name: 'Landlord Sharma',
+    await request(app.getHttpServer()).post('/auth/register').send({
+      firstName: 'Landlord',
+      lastName: 'Sharma',
       email: landlordEmail,
       phone: '+919876543201',
       password: 'Password123!',
       role: 'landlord',
     });
-    landlordToken = landlordRes.body?.data?.accessToken || landlordRes.body?.accessToken;
+    const landlordLogin = await request(app.getHttpServer()).post('/auth/login').send({
+      email: landlordEmail,
+      password: 'Password123!',
+    });
+    landlordToken = landlordLogin.body?.data?.accessToken || landlordLogin.body?.accessToken;
 
     // 2. Register Tenant
     const tenantEmail = `tenant-insp-${Date.now()}@example.com`;
-    const tenantRes = await request(app.getHttpServer()).post('/auth/register').send({
-      name: 'Tenant Verma',
+    await request(app.getHttpServer()).post('/auth/register').send({
+      firstName: 'Tenant',
+      lastName: 'Verma',
       email: tenantEmail,
       phone: '+919876543202',
       password: 'Password123!',
       role: 'tenant',
     });
-    tenantToken = tenantRes.body?.data?.accessToken || tenantRes.body?.accessToken;
+    const tenantLogin = await request(app.getHttpServer()).post('/auth/login').send({
+      email: tenantEmail,
+      password: 'Password123!',
+    });
+    tenantToken = tenantLogin.body?.data?.accessToken || tenantLogin.body?.accessToken;
 
     // 3. Landlord creates rental
     const rentalRes = await request(app.getHttpServer())
@@ -87,14 +97,14 @@ describe('InspectionsController (e2e)', () => {
       .expect(201);
     const uploadBody = uploadRes.body?.data || uploadRes.body;
     uploadId = uploadBody._id;
-  });
+  }, 30000);
 
   afterAll(async () => {
     await app.close();
   });
 
-  it('POST /inspections without auth should return 401 Unauthorized', () => {
-    return request(app.getHttpServer()).post('/inspections').expect(401);
+  it('POST /rentals/:rentalId/inspections without auth should return 401 Unauthorized', () => {
+    return request(app.getHttpServer()).post(`/rentals/${rentalId}/inspections`).expect(401);
   });
 
   it('POST /rentals/:rentalId/inspections creates move-in inspection', async () => {
@@ -112,6 +122,14 @@ describe('InspectionsController (e2e)', () => {
     expect(body.type).toBe('move_in');
     expect(body.status).toBe('draft');
     inspectionId = body._id;
+  });
+
+  it('POST /rentals/:rentalId/inspections as Tenant returns 403 Forbidden', () => {
+    return request(app.getHttpServer())
+      .post(`/rentals/${rentalId}/inspections`)
+      .set('Authorization', `Bearer ${tenantToken}`)
+      .send({ type: 'move_in' })
+      .expect(403);
   });
 
   it('POST /inspections/:id/items adds checklist item with upload _id', async () => {
@@ -134,6 +152,18 @@ describe('InspectionsController (e2e)', () => {
     expect(body.photos).toHaveLength(1);
     expect(body.photos[0]._id).toBe(uploadId);
     expect(body.photos[0].sha256Hash).toBeDefined();
+  });
+
+  it('POST /inspections/:id/items as Tenant returns 403 Forbidden', () => {
+    return request(app.getHttpServer())
+      .post(`/inspections/${inspectionId}/items`)
+      .set('Authorization', `Bearer ${tenantToken}`)
+      .send({
+        roomName: 'Living Room',
+        itemName: 'Curtains',
+        condition: 'good',
+      })
+      .expect(403);
   });
 
   it('GET /inspections/:id returns inspection with populated items and photo hashes', async () => {

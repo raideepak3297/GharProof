@@ -64,4 +64,4 @@ export class MongoDbUploadService {
   }
 }
 
-const POPULATE_TAB = [{ path: 'uploadedBy', select: 'name email role' }];
+const POPULATE_TAB = [{ path: 'uploadedBy', select: 'firstName lastName email role' }];

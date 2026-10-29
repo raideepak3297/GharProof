@@ -5,16 +5,21 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Types } from 'mongoose';
-import { RentalStatus } from '../../common/enums';
+import { RentalStatus, Role } from '../../common/enums';
 import { assertRentalAccess } from '../../common/utils/rental-access.util';
 import { MongoDbRentalService } from '../../mongoDb/mongo-db-rental.service';
+import { MongoDbUserService } from '../../mongoDb/mongo-db-user.service';
 import { JwtPayload } from '../auth/interfaces/auth.interface';
 import { CreateRentalDto } from './dto/create-rental.dto';
-import { IRental } from './interfaces/rental.interface';
+import { ListRentalsDto } from './dto/list-rentals.dto';
+import { IPaginatedRentalsResponse, IRental } from './interfaces/rental.interface';
 
 @Injectable()
 export class RentalsService {
-  constructor(private readonly mongoDbRentalService: MongoDbRentalService) {}
+  constructor(
+    private readonly mongoDbRentalService: MongoDbRentalService,
+    private readonly mongoDbUserService: MongoDbUserService,
+  ) {}
 
   async create(landlordId: string, createRentalDto: CreateRentalDto): Promise<IRental> {
     if (createRentalDto.endDate) {
@@ -25,11 +30,36 @@ export class RentalsService {
       }
     }
 
-    const status = createRentalDto.tenantInviteEmail ? RentalStatus.INVITED : RentalStatus.DRAFT;
+    let tenantObjectId: Types.ObjectId | null = null;
+    let inviteEmail = createRentalDto.tenantInviteEmail?.toLowerCase()?.trim();
+    let invitePhone = createRentalDto.tenantInvitePhone?.trim();
+
+    if (createRentalDto.tenantId) {
+      if (!Types.ObjectId.isValid(createRentalDto.tenantId)) {
+        throw new BadRequestException('Invalid tenant ID format');
+      }
+      const tenant = await this.mongoDbUserService.findById(createRentalDto.tenantId);
+      if (!tenant || tenant.role !== Role.TENANT) {
+        throw new BadRequestException('Selected user is not a valid registered tenant');
+      }
+      tenantObjectId = new Types.ObjectId(createRentalDto.tenantId);
+      inviteEmail = tenant.email;
+      invitePhone = tenant.phone || invitePhone;
+    } else if (inviteEmail) {
+      const existingTenant = await this.mongoDbUserService.findByEmail(inviteEmail);
+      if (existingTenant && existingTenant.role === Role.TENANT) {
+        tenantObjectId = existingTenant._id;
+        invitePhone = existingTenant.phone || invitePhone;
+      }
+    }
+
+    const status = tenantObjectId || inviteEmail ? RentalStatus.INVITED : RentalStatus.DRAFT;
 
     return this.mongoDbRentalService.create({
       ...createRentalDto,
-      tenantInviteEmail: createRentalDto.tenantInviteEmail?.toLowerCase(),
+      tenantId: tenantObjectId,
+      tenantInviteEmail: inviteEmail,
+      tenantInvitePhone: invitePhone,
       landlordId: new Types.ObjectId(landlordId),
       status,
       startDate: new Date(createRentalDto.startDate),
@@ -37,8 +67,13 @@ export class RentalsService {
     });
   }
 
-  async findAllForUser(user: JwtPayload): Promise<IRental[]> {
-    return this.mongoDbRentalService.findUserRentals(user.userId, user.email);
+  async findAllForUser(
+    user: JwtPayload,
+    query?: ListRentalsDto,
+  ): Promise<IPaginatedRentalsResponse> {
+    const page = query?.page ?? 1;
+    const limit = query?.limit ?? 20;
+    return this.mongoDbRentalService.findUserRentals(user.userId, user.email, page, limit);
   }
 
   async findByIdWithAuth(rentalId: string, user: JwtPayload): Promise<IRental> {

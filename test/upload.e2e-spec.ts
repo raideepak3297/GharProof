@@ -24,16 +24,22 @@ describe('UploadController (e2e)', () => {
 
     // Register a user to obtain auth token
     const uniqueEmail = `test-upload-${Date.now()}@example.com`;
-    const regRes = await request(app.getHttpServer()).post('/auth/register').send({
-      name: 'Upload Tester',
+    await request(app.getHttpServer()).post('/auth/register').send({
+      firstName: 'Upload',
+      lastName: 'Tester',
       email: uniqueEmail,
       phone: '+919999988888',
       password: 'Password123!',
       role: 'landlord',
     });
 
-    authToken = regRes.body?.data?.accessToken || regRes.body?.accessToken;
-  });
+    const loginRes = await request(app.getHttpServer()).post('/auth/login').send({
+      email: uniqueEmail,
+      password: 'Password123!',
+    });
+
+    authToken = loginRes.body?.data?.accessToken || loginRes.body?.accessToken;
+  }, 30000);
 
   afterAll(async () => {
     await app.close();

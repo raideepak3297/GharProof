@@ -31,39 +31,52 @@ describe('ReportsController (e2e)', () => {
     const timestamp = Date.now();
 
     // 1. Register Landlord
-    const landlordRes = await request(app.getHttpServer())
-      .post('/auth/register')
-      .send({
-        name: 'Report Landlord',
-        email: `landlord-rep-${timestamp}@example.com`,
-        phone: '+919876543501',
-        password: 'Password123!',
-        role: 'landlord',
-      });
-    landlordToken = landlordRes.body?.data?.accessToken || landlordRes.body?.accessToken;
+    const landlordEmail = `landlord-rep-${timestamp}@example.com`;
+    await request(app.getHttpServer()).post('/auth/register').send({
+      firstName: 'Report',
+      lastName: 'Landlord',
+      email: landlordEmail,
+      phone: '+919876543501',
+      password: 'Password123!',
+      role: 'landlord',
+    });
+    const landlordLogin = await request(app.getHttpServer()).post('/auth/login').send({
+      email: landlordEmail,
+      password: 'Password123!',
+    });
+    landlordToken = landlordLogin.body?.data?.accessToken || landlordLogin.body?.accessToken;
 
     // 2. Register Tenant
     const tenantEmail = `tenant-rep-${timestamp}@example.com`;
-    const tenantRes = await request(app.getHttpServer()).post('/auth/register').send({
-      name: 'Report Tenant',
+    await request(app.getHttpServer()).post('/auth/register').send({
+      firstName: 'Report',
+      lastName: 'Tenant',
       email: tenantEmail,
       phone: '+919876543502',
       password: 'Password123!',
       role: 'tenant',
     });
-    tenantToken = tenantRes.body?.data?.accessToken || tenantRes.body?.accessToken;
+    const tenantLogin = await request(app.getHttpServer()).post('/auth/login').send({
+      email: tenantEmail,
+      password: 'Password123!',
+    });
+    tenantToken = tenantLogin.body?.data?.accessToken || tenantLogin.body?.accessToken;
 
     // 3. Register Outsider
-    const outsiderRes = await request(app.getHttpServer())
-      .post('/auth/register')
-      .send({
-        name: 'Report Outsider',
-        email: `outsider-rep-${timestamp}@example.com`,
-        phone: '+919876543503',
-        password: 'Password123!',
-        role: 'tenant',
-      });
-    outsiderToken = outsiderRes.body?.data?.accessToken || outsiderRes.body?.accessToken;
+    const outsiderEmail = `outsider-rep-${timestamp}@example.com`;
+    await request(app.getHttpServer()).post('/auth/register').send({
+      firstName: 'Report',
+      lastName: 'Outsider',
+      email: outsiderEmail,
+      phone: '+919876543503',
+      password: 'Password123!',
+      role: 'tenant',
+    });
+    const outsiderLogin = await request(app.getHttpServer()).post('/auth/login').send({
+      email: outsiderEmail,
+      password: 'Password123!',
+    });
+    outsiderToken = outsiderLogin.body?.data?.accessToken || outsiderLogin.body?.accessToken;
 
     // 4. Create Rental
     const rentalRes = await request(app.getHttpServer())
@@ -183,7 +196,7 @@ describe('ReportsController (e2e)', () => {
         tenantComment: 'Agreed with cleaning deduction',
       })
       .expect(200);
-  });
+  }, 30000);
 
   afterAll(async () => {
     await app.close();

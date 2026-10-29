@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { DisputeTenantStatus } from '../../common/enums';
+import { DisputeTenantStatus, RentalStatus } from '../../common/enums';
 import {
   assertLandlordAccess,
   assertRentalAccess,
@@ -42,6 +42,12 @@ export class DisputesService {
   ): Promise<IDispute> {
     const rental = await this.getRentalOrThrow(rentalId);
     assertLandlordAccess(rental, user, 'propose deductions for this rental');
+
+    if (rental.status === RentalStatus.COMPLETED) {
+      throw new BadRequestException(
+        'Cannot propose deductions for a completed tenancy. Settlement is already finalized.',
+      );
+    }
 
     if (dto.roomItemId) {
       const roomItem = await this.mongoDbRoomItemService.findById(dto.roomItemId);

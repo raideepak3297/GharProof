@@ -32,7 +32,9 @@ export class UploadService {
     private readonly mongoDbUploadService: MongoDbUploadService,
     private readonly configService: ConfigService,
   ) {
-    this.baseUploadDir = this.configService.get<string>('storage.uploadDir', './uploads');
+    this.baseUploadDir = path.resolve(
+      this.configService.get<string>('storage.uploadDir', './uploads'),
+    );
     this.ensureDirectoryExists(this.baseUploadDir);
   }
 
@@ -97,7 +99,7 @@ export class UploadService {
     const upload = await this.getUploadById(id);
     // Relative path starts with /uploads, map back to baseUploadDir
     const relativePart = upload.path.replace(/^\/uploads\/?/, '');
-    const diskPath = path.join(this.baseUploadDir, relativePart);
+    const diskPath = path.resolve(this.baseUploadDir, relativePart);
 
     if (!fs.existsSync(diskPath)) {
       throw new NotFoundException(`File for upload ID ${id} does not exist on disk`);

@@ -515,18 +515,20 @@ export class PdfReportBuilder {
       const totalPages = doc.bufferedPageRange().count;
       for (let i = 0; i < totalPages; i++) {
         doc.switchToPage(i);
+        doc.page.margins.bottom = 0; // Prevent auto-pagebreak on footer
         doc.save();
-        doc.rect(leftMargin, 805, printableWidth, 1).fill(borderColor);
+        doc.rect(leftMargin, 795, printableWidth, 0.75).fill(borderColor);
         doc.font('Helvetica').fontSize(7.5).fillColor(mutedText);
         doc.text(
           'GharProof Certified Inspection Report • Cryptographically Secured Legal Record',
           leftMargin,
-          812,
-          { align: 'left' },
+          802,
+          { align: 'left', width: 350, lineBreak: false },
         );
-        doc.text(`Page ${i + 1} of ${totalPages}`, leftMargin, 812, {
+        doc.text(`Page ${i + 1} of ${totalPages}`, leftMargin, 802, {
           align: 'right',
           width: printableWidth,
+          lineBreak: false,
         });
         doc.restore();
       }
